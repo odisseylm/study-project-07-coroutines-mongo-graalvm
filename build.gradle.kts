@@ -55,7 +55,7 @@ graalvmNative {
 	// testSupport = false
 
 	metadataRepository {
-		enabled = true
+		//enabled = true
 		// version = "0.1.0"
 		// uri(file("metadata-repository"))
 
@@ -80,7 +80,7 @@ graalvmNative {
 		// Copies metadata collected from tasks into the specified directories.
 		metadataCopy {
 			inputTaskNames.add("test") // Tasks previously executed with the agent attached.
-			outputDirectories.add("src/main/resources/META-INF/native-image")
+			//outputDirectories.add("src/main/resources/META-INF/native-image")
 			mergeWithExisting = true // Instead of copying, merge with existing metadata in the output directories.
 		}
 
@@ -104,6 +104,10 @@ graalvmNative {
 			// fallback = false
 			// quickBuild = true
 
+			//buildArgs.add("-H:ReflectionConfigurationFiles=/path/to/reflectconfig")
+			buildArgs.add("-H:ReflectionConfigurationFiles=${projectDir}/build/native/agent-output/test/reflect-config.json")
+			buildArgs.add("-H:ReflectionConfigurationFiles=${projectDir}/build/native/agent-output/test/reflect-config.json")
+
 			//javaLauncher.set(javaToolchains.launcherFor {
 			//	languageVersion.set(JavaLanguageVersion.of(8))
 			//	vendor.set(JvmVendorSpec.matching("GraalVM Community"))
@@ -124,6 +128,11 @@ graalvmNative {
 			// will be used by the native-image builder process
 			//
 			verbose = true
+			richOutput = true
+
+			//configurationFileDirectories.from(file("src/my-config"))
+			//configurationFileDirectories.from(file("/home/vmelnykov/projects/study-project-07-coroutines-mongo-graalvm/build/native/agent-output/processAot/resource-config.json"))
+
 			// SharedLibrary  // Gets the value which determines if shared library is being built.
 			// BuildArgs
 			// SystemProperties

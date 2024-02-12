@@ -386,97 +386,97 @@ tasks.check { dependsOn(integrationTest) }
 // https://docs.spring.io/spring-boot/docs/current/gradle-plugin/reference/htmlsingle/
 
 tasks.named<BootBuildImage>("bootBuildImage") {
-builder.set("mine/java-cnb-builder")
-runImage.set("mine/java-cnb-run")
+	builder.set("mine/java-cnb-builder")
+	runImage.set("mine/java-cnb-run")
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-environment.set(environment.get() + mapOf("BP_JVM_VERSION" to "17"))
+	environment.set(environment.get() + mapOf("BP_JVM_VERSION" to "17"))
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-environment.set(mapOf("HTTP_PROXY" to "http://proxy.example.com",
-    "HTTPS_PROXY" to "https://proxy.example.com"))
+	environment.set(mapOf("HTTP_PROXY" to "http://proxy.example.com",
+		"HTTPS_PROXY" to "https://proxy.example.com"))
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-environment.set(mapOf(
-    "BPE_DELIM_JAVA_TOOL_OPTIONS" to " ",
-    "BPE_APPEND_JAVA_TOOL_OPTIONS" to "-XX:+HeapDumpOnOutOfMemoryError"
-))
+	environment.set(mapOf(
+		"BPE_DELIM_JAVA_TOOL_OPTIONS" to " ",
+		"BPE_APPEND_JAVA_TOOL_OPTIONS" to "-XX:+HeapDumpOnOutOfMemoryError"
+	))
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-imageName.set("example.com/library/${project.name}")
+	imageName.set("example.com/library/${project.name}")
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-buildpacks.set(listOf("file:///path/to/example-buildpack.tgz", "urn:cnb:builder:paketo-buildpacks/java"))
+	buildpacks.set(listOf("file:///path/to/example-buildpack.tgz", "urn:cnb:builder:paketo-buildpacks/java"))
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-imageName.set("docker.example.com/library/${project.name}")
-publish.set(true)
-docker {
-    publishRegistry {
-        username.set("user")
-        password.set("secret")
-    }
-}
-}
-tasks.named<BootBuildImage>("bootBuildImage") {
-docker {
-    host.set("tcp://192.168.99.100:2376")
-    tlsVerify.set(true)
-    certPath.set("/home/user/.minikube/certs")
-}
+	imageName.set("docker.example.com/library/${project.name}")
+	publish.set(true)
+	docker {
+		publishRegistry {
+			username.set("user")
+			password.set("secret")
+		}
+	}
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-docker {
-    host.set("unix:///run/user/1000/podman/podman.sock")
-    bindHostToBuilder.set(true)
-}
-}
-tasks.named<BootBuildImage>("bootBuildImage") {
-docker {
-    builderRegistry {
-        username.set("user")
-        password.set("secret")
-        url.set("https://docker.example.com/v1/")
-        email.set("user@example.com")
-    }
-}
+	docker {
+		host.set("tcp://192.168.99.100:2376")
+		tlsVerify.set(true)
+		certPath.set("/home/user/.minikube/certs")
+	}
 }
 tasks.named<BootBuildImage>("bootBuildImage") {
-docker {
-    builderRegistry {
-        token.set("9cbaf023786cd7...")
-    }
+	docker {
+		host.set("unix:///run/user/1000/podman/podman.sock")
+		bindHostToBuilder.set(true)
+	}
 }
+tasks.named<BootBuildImage>("bootBuildImage") {
+	docker {
+		builderRegistry {
+			username.set("user")
+			password.set("secret")
+			url.set("https://docker.example.com/v1/")
+			email.set("user@example.com")
+		}
+	}
+}
+tasks.named<BootBuildImage>("bootBuildImage") {
+	docker {
+		builderRegistry {
+			token.set("9cbaf023786cd7...")
+		}
+	}
 }
 publishing {
-publications {
-    create<MavenPublication>("bootJava") {
-        artifact(tasks.named("bootJar"))
-    }
-}
-repositories {
-    maven {
-        url = uri("https://repo.example.com")
-    }
-}
+	publications {
+		create<MavenPublication>("bootJava") {
+			artifact(tasks.named("bootJar"))
+		}
+	}
+	repositories {
+		maven {
+			url = uri("https://repo.example.com")
+		}
+	}
 }
 
 tasks.named<BootRun>("bootRun") {
-mainClass.set("com.example.ExampleApplication")
+	mainClass.set("com.example.ExampleApplication")
 }
 springBoot {
-mainClass.set("com.example.ExampleApplication")
+	mainClass.set("com.example.ExampleApplication")
 }
 
 tasks.named<BootRun>("bootRun") {
-optimizedLaunch.set(false)
+	optimizedLaunch.set(false)
 }
 application {
-mainClass.set("com.example.ExampleApplication")
+	mainClass.set("com.example.ExampleApplication")
 }
 
 tasks.named<BootRun>("bootRun") {
-systemProperty("com.example.property", findProperty("example") ?: "default")
+	systemProperty("com.example.property", findProperty("example") ?: "default")
 }
 
 

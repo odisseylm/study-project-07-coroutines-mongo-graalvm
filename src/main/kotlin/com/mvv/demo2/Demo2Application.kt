@@ -14,8 +14,8 @@ class Demo2Application {
 	init {
 		val cmd = ProcessHandle.current().info().commandLine().orElse(null)
 		log.info("### App is run as \n  $cmd")
+	    forGraalVM()
 	}
-
 }
 
 fun main(args: Array<String>) {

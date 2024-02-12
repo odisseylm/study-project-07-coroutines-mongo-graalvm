@@ -49,7 +49,7 @@ class TestDemo2Application {
 	@ServiceConnection
 	fun mongoDbContainer(): MongoDBContainer {
 
-		val mongoMode = MongoDBStartMode.ReplicaSet
+		val mongoMode = MongoDBStartMode.Standard
 		val connectionSettings = MongoDBConnectSettings(
 			user = "db1user",
 			psw = "db1psw",

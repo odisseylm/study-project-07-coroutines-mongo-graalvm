@@ -51,7 +51,8 @@ class MongoDBContainer2(private val mongoDbStartMode: MongoDBStartMode, dockerIm
             else -> ""
         }
 
-        return "mongodb://$userAndPswPart$host:$port/$databasePart$authSourcePart"
+        val url = "mongodb://$userAndPswPart$host:$port/$databasePart$authSourcePart"
+        return url
     }
 
     override fun getConnectionString(): String  = getConnectionStringImpl(null)

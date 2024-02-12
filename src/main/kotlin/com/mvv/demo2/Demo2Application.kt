@@ -1,11 +1,22 @@
 package com.mvv.demo2
 
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 
 @SpringBootApplication
-class Demo2Application
+class Demo2Application {
+
+	private val log: Logger = LoggerFactory.getLogger(Demo2Application::class.java)
+
+	init {
+		val cmd = ProcessHandle.current().info().commandLine().orElse(null)
+		log.info("### App is run as \n  $cmd")
+	}
+
+}
 
 fun main(args: Array<String>) {
 	// System.setProperty("spring.docker.compose.enabled", "false")

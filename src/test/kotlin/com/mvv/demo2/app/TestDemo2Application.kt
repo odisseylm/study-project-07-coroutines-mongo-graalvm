@@ -2,6 +2,7 @@ package com.mvv.demo2.app
 
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.command.InspectContainerResponse
+import com.mvv.demo2.BuildToolHelper.Companion.getProjectDirectory
 import com.mvv.demo2.Demo2Application
 import org.springframework.boot.autoconfigure.mongo.MongoClientSettingsBuilderCustomizer
 import org.springframework.boot.fromApplication
@@ -55,9 +56,10 @@ class TestDemo2Application {
 			db = "db1",
 			userAuthDb = "db1",
 		)
+		val projectDir = getProjectDirectory(TestDemo2Application::class)
 
 		val mc = MongoDBContainer2(mongoMode, DockerImageName.parse("mongo:latest"), connectionSettings)
-			.withFileSystemBind("/home/vmelnykov/projects/spring-boot/demo2/src/main/resources/mongodb-init", "/docker-entrypoint-initdb.d/", BindMode.READ_ONLY)
+			.withFileSystemBind("$projectDir/src/main/resources/mongodb-init", "/docker-entrypoint-initdb.d/", BindMode.READ_ONLY)
 
 		@Suppress("KotlinConstantConditions")
 		if (mongoMode == MongoDBStartMode.Standard) {

@@ -5,6 +5,7 @@ import com.mvv.tests.Credentials
 import com.mvv.tests.httpGetString
 import com.mvv.tests.httpGetString_byStdUrl
 import com.mvv.tests.useAssertJSoftAssertions
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
@@ -27,6 +28,13 @@ internal class Demo2ApplicationTests {
 	private var port: Int = -1
 
 	@Test
+	fun forGraalVM() {
+//		val cls = Class.forName("org.springframework.data.domain.Unpaged")
+//		val instance = cls.getDeclaredConstructor(Sort::class.java).newInstance()
+//		assertThat(instance).isNotNull()
+	}
+
+	@Test
 	fun contextLoads() {
 		//val port = servletAppContext.webServer.port
 		println("port: $port")
@@ -35,6 +43,9 @@ internal class Demo2ApplicationTests {
 		val username = "test"
 		val password = "test"
 		val credentials = Credentials(username, password)
+
+		val resp0 = httpGetString("http://localhost:$port/customers3", credentials)
+		assertThat(resp0.status).isEqualTo(200)
 
 		val resp1 = httpGetString_byStdUrl(url, credentials)
 		println("1) result status: ${resp1.status}")

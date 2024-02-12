@@ -5,7 +5,6 @@ import com.mongodb.client.MongoCollection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import org.bson.Document
-import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoOperations
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.web.bind.annotation.GetMapping
@@ -34,8 +33,8 @@ data class Banner (
         return listOf(Customer("customer1"))
     }
 
-    @GetMapping("/customers2")
-    fun getCustomers2(): List<Customer> {
+    @GetMapping("/test")
+    fun test(): List<Customer> {
 
         val users: MongoCollection<Document> = mongoOperations.getCollection("users")
 
@@ -45,27 +44,26 @@ data class Banner (
             println("mongo db: $db")
         }
 
-        //val userCount: Long = users.countDocuments()
-        //println("user count $userCount")
+        val userCount: Long = users.countDocuments()
+        println("user count $userCount")
 
         val allUsersIt1: FindIterable<Document> = users.find()
         val allUsers: List<Document> = allUsersIt1.asIterable().toList()
 
-        // TODO()
         return listOf(Customer("all our users count ${allUsers.size}"))
     }
 
-    @GetMapping("/customers3")
-    fun getCustomers3(): String {
-
-        val cls = loadClass1("org.springframework.data.domain.Unpaged")
-        val instance = cls.getDeclaredConstructor(Sort::class.java)
-            .also { it.trySetAccessible() }
-            .newInstance(Sort.by("prop1"))
-        requireNotNull(instance)
-
-        return "OK"
-    }
+    //@GetMapping("/test-temp2")
+    //fun getCustomers3(): String {
+    //
+    //    val cls = loadClass1("org.springframework.data.domain.Unpaged")
+    //    val instance = cls.getDeclaredConstructor(Sort::class.java)
+    //        .also { it.trySetAccessible() }
+    //        .newInstance(Sort.by("prop1"))
+    //    requireNotNull(instance)
+    //
+    //    return "OK"
+    //}
 
     @GetMapping("/customers2-suspended")
     /*suspend*/ /*open*/ fun getCustomers2_suspended(): List<Customer> {
@@ -78,6 +76,7 @@ data class Banner (
 
         val allUsersIt1: FindIterable<Document> = users.find()
         val allUsers: List<Document> = allUsersIt1.asIterable().toList()
+        println(allUsers)
         //allUsers.map { it.to }
 
         //...

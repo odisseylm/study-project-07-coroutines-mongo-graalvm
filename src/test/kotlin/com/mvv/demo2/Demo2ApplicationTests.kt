@@ -9,6 +9,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.data.domain.Sort
 import org.springframework.test.context.TestPropertySource
 
 
@@ -29,9 +30,9 @@ internal class Demo2ApplicationTests {
 
 	@Test
 	fun forGraalVM() {
-//		val cls = Class.forName("org.springframework.data.domain.Unpaged")
-//		val instance = cls.getDeclaredConstructor(Sort::class.java).newInstance()
-//		assertThat(instance).isNotNull()
+		val cls = loadClass1("org.springframework.data.domain.Unpaged")
+		val instance = cls.getDeclaredConstructor(Sort::class.java).newInstance()
+		assertThat(instance).isNotNull()
 	}
 
 	@Test
@@ -39,13 +40,13 @@ internal class Demo2ApplicationTests {
 		//val port = servletAppContext.webServer.port
 		println("port: $port")
 
-		val url = "http://localhost:$port/customers2"
+		val url = "http://localhost:$port/test"
 		val username = "test"
 		val password = "test"
 		val credentials = Credentials(username, password)
 
-		val resp0 = httpGetString("http://localhost:$port/customers3", credentials)
-		assertThat(resp0.status).isEqualTo(200)
+		//val resp0 = httpGetString("http://localhost:$port/test-temp2", credentials)
+		//assertThat(resp0.status).isEqualTo(200)
 
 		val resp1 = httpGetString_byStdUrl(url, credentials)
 		println("1) result status: ${resp1.status}")

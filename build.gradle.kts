@@ -1,9 +1,19 @@
 //import org.graalvm.buildtools.gradle.tasks.BuildNativeImageTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+repositories {
+	mavenCentral()
+	//gradlePluginPortal()
+}
+
+// Mainly used to avoid warnings in Idea
+val springBootVer = "3.2.2"
+val kotlinVer = "1.9.22"
+
 plugins {
 	id("org.springframework.boot") version "3.2.2"
 	id("io.spring.dependency-management") version "1.1.4"
+
 	id("org.graalvm.buildtools.native") version "0.9.28"
 
 	idea
@@ -14,30 +24,71 @@ plugins {
 group = "com.mvv"
 version = "0.0.1-SNAPSHOT"
 
+dependencies {
+	implementation("org.springframework.boot:spring-boot-starter-actuator:$springBootVer")
+
+	implementation("org.springframework.boot:spring-boot-starter-data-mongodb:$springBootVer")
+	implementation("org.springframework.boot:spring-boot-starter-data-mongodb-reactive:$springBootVer")
+
+	implementation("org.springframework.boot:spring-boot-starter-security:$springBootVer")
+	implementation("org.springframework.boot:spring-boot-starter-web:$springBootVer")
+	implementation("org.springframework.boot:spring-boot-starter-webflux:$springBootVer")
+	implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.2")
+
+	implementation("commons-io:commons-io:2.15.1")
+
+	implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.2.2")
+
+	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVer")
+	implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVer")
+
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.7.1")
+
+	developmentOnly("org.springframework.boot:spring-boot-docker-compose:$springBootVer")
+
+	val junitVersion = "5.9.2"
+	testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+	testImplementation("org.junit.jupiter:junit-jupiter-params:$junitVersion")
+	testImplementation("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+	testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+
+	testImplementation("org.assertj:assertj-core:3.24.2")
+	testImplementation("org.testcontainers:junit-jupiter:1.17.6")
+
+	testImplementation("org.springframework.boot:spring-boot-starter-test:$springBootVer")
+	testImplementation("org.springframework.boot:spring-boot-testcontainers:$springBootVer")
+	testImplementation("io.projectreactor:reactor-test:3.5.4")
+	testImplementation("org.springframework.security:spring-security-test:6.0.2")
+	testImplementation("org.testcontainers:mongodb:1.19.5")
+}
+
+dependencyManagement {
+	//imports {
+	//	mavenBom(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
+	//}
+	dependencies {
+		// because 2.8.0 has vulnerability
+		dependency("com.jayway.jsonpath:json-path:[2.9.0,)")
+	}
+}
+
 java {
 	sourceCompatibility = JavaVersion.VERSION_17
 
-	//toolchain {
-	//	languageVersion.set(JavaLanguageVersion.of(21))
+	// toolchain {
+	//	languageVersion = JavaLanguageVersion.of(21)
 	//	vendor = JvmVendorSpec.GRAAL_VM
 	//	implementation = JvmImplementation.VENDOR_SPECIFIC
-	//}
+	// }
 
-	//compile {
-	//
-	//}
 }
-
-//compileJava.options.fork = true
-//compileJava.options.forkOptions.executable = '/path_to_javac'
 
 
 idea {
 	module {
-		setDownloadJavadoc(true)
-		setDownloadSources(true)
-		//downloadJavadoc = true
-		//downloadSources = true
+		isDownloadJavadoc = true
+		isDownloadSources = true
 	}
 }
 
@@ -45,17 +96,16 @@ springBoot {
 	mainClass = "com.mvv.demo2.Demo2ApplicationKt"
 }
 
-//tasks.named<Jar>("jar") {
-//	from(collectReachabilityMetadata)
-//}
-
 graalvmNative {
 
 	// There are cases where you might want to disable native testing support
 	// testSupport = false
 
+	// see https://docs.gradle.org/current/userguide/toolchains.html
+	//toolchainDetection = true
+
 	metadataRepository {
-		//enabled = true
+		// enabled = true
 		// version = "0.1.0"
 		// uri(file("metadata-repository"))
 
@@ -65,17 +115,34 @@ graalvmNative {
 
 		// Force the version of the metadata for a particular library
 		// moduleToConfigVersion.put("com.company:some-library", "3")
+
+		// To include metadata repository inside your jar you can link to the task using the jar DSL from directive:
+		// tasks.named<Jar>("jar") {
+		//	from(collectReachabilityMetadata)
+		// }
 	}
 
-	// see https://graalvm.github.io/native-build-tools/0.9.20/gradle-plugin.html
+	// See https://graalvm.github.io/native-build-tools/0.9.28/gradle-plugin.html
+	// See https://graalvm.github.io/native-build-tools/latest/gradle-plugin.html
 	//
 	agent {
-		defaultMode = "standard" // Default agent mode if one isn't specified using `-Pagent=mode_name`
 		enabled = true // Enables the agent
+
+		defaultMode = "standard" // Default agent mode if one isn't specified using `-Pagent=mode_name`
+		// Modes:
+		//  * Standard - Collects metadata without conditions. This is recommended if you are building an executable.
+		//  * Conditional - Collects metadata with conditions. This is recommended if you are creating conditional metadata for a library intended for further use.
+		//  * Direct - For advanced users only. This mode allows directly controlling the command line passed to the agent.
+
 
 		trackReflectionMetadata = true
 
-		//path = "/software/graalvm-jdk-21.0.2+13.1/lib/libnative-image-agent.so"
+		// callerFilterFiles.from("filter.json")
+		// accessFilterFiles.from("filter.json")
+		// builtinCallerFilter = true
+		// builtinHeuristicFilter = true
+		// enableExperimentalPredefinedClasses = false
+		// enableExperimentalUnsafeAllocationTracing = false
 
 		// Copies metadata collected from tasks into the specified directories.
 		metadataCopy {
@@ -86,34 +153,37 @@ graalvmNative {
 
 		// By default, if `-Pagent` is specified, all tasks that extend JavaForkOptions are instrumented.
         // This can be limited to only specific tasks that match this predicate.
-		//tasksToInstrumentPredicate = { it -> true }
+		// tasksToInstrumentPredicate = { it -> true }
 	}
 
 	//useArgFile = true
 
 	binaries {
 
-		//configure {
-		//
-		//}
-
 		//jvmArgs = ""
 
 		named("main") {
+
+			// will be used by the native-image builder process
+			//
+			verbose = true
+			richOutput = true  // Determines if native-image building should be done with rich output
+
+			quickBuild = false // Determines if image is being built in quick build mode (alternatively use GRAALVM_QUICK_BUILD environment variable, or add --native-quick-build to the CLI)
+
+			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
+
 			// mainClass =
-			// fallback = false
-			// quickBuild = true
+			// fallback = false   // Sets the fallback mode of native-image, defaults to false
 
-			//buildArgs.add("-H:ReflectionConfigurationFiles=/path/to/reflectconfig")
-			buildArgs.add("-H:ReflectionConfigurationFiles=${projectDir}/build/native/agent-output/test/reflect-config.json")
-			buildArgs.add("-H:ReflectionConfigurationFiles=${projectDir}/build/native/agent-output/test/reflect-config.json")
-
-			//javaLauncher.set(javaToolchains.launcherFor {
-			//	languageVersion.set(JavaLanguageVersion.of(8))
-			//	vendor.set(JvmVendorSpec.matching("GraalVM Community"))
-			//})
-
-			//toolchainDetection = false
+			// toolchainDetection = false
+			// javaLauncher = javaToolchains.launcherFor {
+			//	languageVersion = JavaLanguageVersion.of(21)
+			//	//vendor = JvmVendorSpec.matching("GraalVM Community")
+			//	vendor = JvmVendorSpec.matching("Oracle Corporation")
+			// }
+			//
+			// requiredVersion = "22.3" // The minimal GraalVM version, can be `MAJOR`, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`
 
 			// If set to true, this will build a fat jar of the image classpath
 			// instead of passing each jar individually to the classpath.
@@ -122,110 +192,67 @@ graalvmNative {
 			// Defaults to true for Windows, and false otherwise.
 			//
 			// useFatJar = true
-
-			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
-
-			// will be used by the native-image builder process
 			//
-			verbose = true
-			richOutput = true
+			// Or you can use yours alternative fatJar
+			// tasks.named<BuildNativeImageTask>("nativeCompile") {
+			//	classpathJar = myFatJar.flatMap { it.archiveFile }
+			// }
 
-			//configurationFileDirectories.from(file("src/my-config"))
-			//configurationFileDirectories.from(file("/home/vmelnykov/projects/study-project-07-coroutines-mongo-graalvm/build/native/agent-output/processAot/resource-config.json"))
 
-			// SharedLibrary  // Gets the value which determines if shared library is being built.
-			// BuildArgs
-			// SystemProperties
-			// EnvironmentVariables
-			// Classpath
-			// JvmArgs
+			// buildArgs.add("-H:ReflectionConfigurationFiles=${projectDir}/build/native/agent-output/test/reflect-config.json")
+
+			// Adds a native image configuration file directory, containing files like reflection configuration
+			// configurationFileDirectories.from(file("src/my-config"))
+			configurationFileDirectories.from(file("${projectDir}/build/native/agent-output/test"))
+			// configurationFileDirectories.from(file("/home/vmelnykov/projects/study-project-07-coroutines-mongo-graalvm/build/native/agent-output/processAot/resource-config.json"))
+
+			// Excludes configuration that matches one of given regexes from JAR of dependency with said coordinates.
+			// excludeConfig.put("org.example.test:artifact:version", listOf("^/META-INF/native-image/.*", "^/config/.*"))
+			// excludeConfig.put(file("path/to/artifact.jar"), listOf("^/META-INF/native-image/.*", "^/config/.*"))
+
+			// sharedLibrary  // Gets the value which determines if shared library is being built.
+			// buildArgs
+			// systemProperties
+			// environmentVariables
+			// classpath
+			// jvmArgs
+
+			// Advanced options
+			// buildArgs.add("--link-at-build-time") // Passes '--link-at-build-time' to the native image builder options. This can be used to pass parameters which are not directly supported by this extension
+			// jvmArgs.add("flag") // Passes 'flag' directly to the JVM running the native image builder
+
+			// Runtime options
+			// runtimeArgs.add("--help") // Passes '--help' to built image, during "nativeRun" task
 
 			// When set to true, the compiled binaries will be generated with PGO instrumentation support.
 			// pgoInstrument = true
 			// pgoProfilesDirectory =
 		}
 
-		//test {
-		//	buildArgs.addAll('--verbose', '-O0')
-		//}
+		binaries.all {
+			buildArgs.add("--verbose")
+		}
+
+		// For native tests
+		// '-O0' - sets the minimal optimizations (for tests, as I understand)
+		named("test") {
+			buildArgs.addAll("--verbose", "-O0")
+		}
 	}
 
-	// The plugin will then automatically create the following tasks:
-	// nativeIntegTestCompile, to compile a native image using the integTest source set
-    // nativeIntegTest, to execute the tests in native mode
-	//
-	//registerTestBinary("integTest") {
+	// Use it ONLY if
+	// You do NOT actually want to run your tests in native mode (by some reason).
+	// testSupport = false
+
+	// registerTestBinary("integTest") {
 	//	usingSourceSet(sourceSets.getByName("integTest"))
 	//	forTestTask(tasks.named<Test>("integTest"))
-	//}
-}
+	// }
+	//
+	// In this case the plugin will then automatically create the following tasks:
+	// 'nativeIntegTestCompile', to compile a native image using the integTest source set
+	// 'nativeIntegTest', to execute the tests in native mode
 
-//tasks.named<BuildNativeImageTask>("nativeCompile") {
-//	classpathJar.set(myFatJar.flatMap { it.archiveFile })
-//}
-
-
-/*
-graalvmNative {
-	binaries.all {
-		//buildArgs.add("-H:ReflectionConfigurationFiles=/some-path/reflect-configs.json")
-		buildArgs.add("-H:ReflectionConfigurationFiles=reflect-configs.json")
-		//buildArgs.add("--initialize-at-build-time=org.apache.commons.logging.LogFactory")
-		//Read more on https://tech-stack.com/blog/using-graalvm-in-a-real-world-scenario-techstacks-experience/
-		resources.autodetect()
-	}
-}
-//Read more on https://tech-stack.com/blog/using-graalvm-in-a-real-world-scenario-techstacks-experience/
-*/
-
-
-repositories {
-	mavenCentral()
-}
-
-dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-actuator")
-
-	implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
-	implementation("org.springframework.boot:spring-boot-starter-data-mongodb-reactive")
-
-	implementation("org.springframework.boot:spring-boot-starter-security")
-	implementation("org.springframework.boot:spring-boot-starter-web")
-	implementation("org.springframework.boot:spring-boot-starter-webflux")
-	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-
-	implementation("commons-io:commons-io:2.15.1")
-
-	implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
-
-	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-	implementation("org.jetbrains.kotlin:kotlin-reflect")
-	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
-	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
-
-	// deprecated
-	// implementation("org.jetbrains.kotlinx:spring-kotlin-coroutine")
-	//implementation("org.jetbrains.kotlinx:spring-webmvc-kotlin-coroutine")
-	//implementation("org.jetbrains.kotlinx:spring-webflux-kotlin-coroutine")
-	//implementation("org.jetbrains.kotlinx:spring-data-mongodb-kotlin-coroutine")
-
-	//implementation("spring-boot-autoconfigure-kotlin-coroutine")
-
-	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
-
-	testImplementation("org.junit.jupiter:junit-jupiter-api")
-	testImplementation("org.junit.jupiter:junit-jupiter-params")
-	testImplementation("org.junit.jupiter:junit-jupiter-engine")
-	testImplementation("org.junit.jupiter:junit-jupiter")
-
-	testImplementation("org.assertj:assertj-core")
-	testImplementation("org.testcontainers:junit-jupiter")
-
-	testImplementation("org.springframework.boot:spring-boot-starter-test")
-	testImplementation("org.springframework.boot:spring-boot-testcontainers")
-	testImplementation("io.projectreactor:reactor-test")
-	testImplementation("org.springframework.security:spring-security-test")
-	testImplementation("org.testcontainers:mongodb:1.19.5")
 }
 
 tasks.withType<KotlinCompile> {
@@ -236,6 +263,8 @@ tasks.withType<KotlinCompile> {
 }
 
 tasks.withType<Test> {
+
+	// See https://docs.gradle.org/current/userguide/java_testing.html
 
 	useJUnitPlatform()
 
@@ -266,157 +295,126 @@ tasks.withType<Test> {
 	// gradle.properties
 	//    org.gradle.daemon=true
 
-	debug = false
-	debugOptions {
-		suspend = false
-	}
+	// debug = false // Or you can use command line args '--debug-jvm' or '--no-debug-jvm'
+	//
+	// debugOptions {
+	//	suspend = false / true
+	//  enabled = true // ??
+	//  // host.set("localhost")
+	//  port = 4455
+	//  server = true
+	// }
 
+	// Fail the 'test' task on the first test failure
+	// failFast = true
+
+	// Skip an actual test execution
+	// dryRun = true
+
+	// Show standard out and standard error of the test JVM(s) on the console
 	testLogging.showStandardStreams = true
 
-	//testLogging.setShowExceptions(boolean var1);
-	//testLogging.setShowCauses(boolean var1);
-	//testLogging.setShowStackTraces(boolean var1);
-	//testLogging.setExceptionFormat(boolean var1);
-	//testLogging.setStackTraceFilters(boolean var1);
-	//testLogging.setShowExceptions(boolean var1);
-	//testLogging.setShowExceptions(boolean var1);
-	//testLogging.setShowExceptions(boolean var1);
+	// testLogging.showExceptions = true/false
+	// testLogging.showCauses = true/false
+	// testLogging.showStackTraces = true/false
+	// testLogging.exceptionFormat = true/false
+	// testLogging.stackTraceFilters = true/false
+	// testLogging.showExceptions = true/false
+	// testLogging.showExceptions = true/false
+	// testLogging.showExceptions = true/false
 
 
-	//reports.html.required = false
+	// reports.html.required = false
 	//
-	//testLogging {
+	// testLogging {
 	//	debug
-	//}
+	// }
 
 	reports {
 		junitXml.apply {
 			isOutputPerTestCase = true // defaults to false
-			//mergeReruns = true // defaults to false
+			// mergeReruns = true // defaults to false
 		}
 	}
 
-	// listen to standard out and standard error of the test JVM(s)
-	//onOutput {
-	//	//logger.lifecycle("Test: " + descriptor + " produced standard out/err: " + event.message )
-	//}
+	// Listen to standard out and standard error of the test JVM(s).
+	//
+	// addTestOutputListener { testDescriptor, outputEvent ->
+	//	  //if (event.destination == TestOutputEvent.Destination.StdErr) {
+	//	  //    logger.error("Test: " + descriptor + ", error: " + event.message)
+	//	  //}
+	//
+	//	  println("jvmArgs $jvmArgs")
+	//	  println("allJvmArgs $allJvmArgs")
+	//	  println("classpath $classpath")
+	// }
 
-	//onOutput { descriptor: TestDescriptor, event:  TestOutputEvent ->
-	//onOutput { descriptor, event ->
-	//}
+	// Use addTestListener for listen 'beforeSuite', 'afterSuite', 'beforeTest', 'afterTest'.
 
-	/*
-	onOutput { descriptor, event: org.gradle.api.tasks.testing.logging.TestLogEvent ->
-	//onOutput { descriptor: Any, event: Any ->
-	//onOutput { descriptor ->
-		//if (event.destination == TestOutputEvent.Destination.StdErr) {
-		//	logger.error("Test: " + descriptor + ", error: " + event.message)
-		//}
+	// systemProperties.put("key1", "value1")
+	// systemProperty("key1", "value1")
 
-		println("jvmArgs $jvmArgs")
-		println("allJvmArgs $allJvmArgs")
-		println("classpath $classpath")
-	}
-	*/
-	//addTestOutputListener { testDescriptor, outputEvent -> }
+	// Explicitly include or exclude tests
+	// include("org/foo/**")
+	// exclude("org/boo/**")
+
+	// Set heap size for the test JVM(s)
+	// minHeapSize = "128m"
+	// maxHeapSize = "512m"
+
+	// Set JVM arguments for the test JVM(s)
+	// jvmArgs = listOf("-XX:MaxPermSize=256m")
+	// jvmArgs(listOf("-XX:MaxPermSize=256m"))
+	// jvmArgs(arrayOf("-XX:MaxPermSize=256m"))
+	// jvmArgs("-XX:MaxPermSize=256m")
 }
 
-
-//onOutput { descriptor, event ->
-//	logger.lifecycle("Test: " + descriptor + " produced standard out/err: " + event.message )
-//}
 
 /*
-debugOptions {
-    enabled = true
-    //host.set("localhost")
-    port = 4455
-    server = true
-    suspend = true
-}
-
-// set a system property for the test JVM(s)
-systemProperty 'some.prop', 'value'
-
-// explicitly include or exclude tests
-include 'org/foo/**'
-exclude 'org/boo/**'
-
-// show standard out and standard error of the test JVM(s) on the console
-testLogging.showStandardStreams = true
-
-// set heap size for the test JVM(s)
-minHeapSize = "128m"
-maxHeapSize = "512m"
-
-// set JVM arguments for the test JVM(s)
-jvmArgs '-XX:MaxPermSize=256m'
-
-// listen to events in the test execution lifecycle
-beforeTest { descriptor ->
- logger.lifecycle("Running test: " + descriptor)
-}
-
-// fail the 'test' task on the first test failure
-failFast = true
-
-// skip an actual test execution
-dryRun = true
-
-// listen to standard out and standard error of the test JVM(s)
-onOutput { descriptor, event ->
- logger.lifecycle("Test: " + descriptor + " produced standard out/err: " + event.message )
-}
-*/
-}
-
-/*
-
-gradle <someTestTask> --debug-jvm
 
 val integrationTest = task<Test>("integrationTest") {
-description = "Runs integration tests."
-group = "verification"
+    description = "Runs integration tests."
+    group = "verification"
 
-testClassesDirs = sourceSets["intTest"].output.classesDirs
-classpath = sourceSets["intTest"].runtimeClasspath
-shouldRunAfter("test")
+    testClassesDirs = sourceSets["intTest"].output.classesDirs
+    classpath = sourceSets["intTest"].runtimeClasspath
+    shouldRunAfter("test")
 
-useJUnitPlatform()
-
-testLogging {
-    events("passed")
-}
+    testLogging {
+        events("passed")
+    }
 }
 
 tasks.check { dependsOn(integrationTest) }
 
- */
+*/
+
+
+
+/*
+// TODO: remove or polish this.
+//
+// spring-boot configuration
 // https://docs.spring.io/spring-boot/docs/current/gradle-plugin/reference/htmlsingle/
 
 tasks.named<BootBuildImage>("bootBuildImage") {
 	builder.set("mine/java-cnb-builder")
 	runImage.set("mine/java-cnb-run")
-}
-tasks.named<BootBuildImage>("bootBuildImage") {
+
+
 	environment.set(environment.get() + mapOf("BP_JVM_VERSION" to "17"))
-}
-tasks.named<BootBuildImage>("bootBuildImage") {
 	environment.set(mapOf("HTTP_PROXY" to "http://proxy.example.com",
 		"HTTPS_PROXY" to "https://proxy.example.com"))
-}
-tasks.named<BootBuildImage>("bootBuildImage") {
 	environment.set(mapOf(
 		"BPE_DELIM_JAVA_TOOL_OPTIONS" to " ",
 		"BPE_APPEND_JAVA_TOOL_OPTIONS" to "-XX:+HeapDumpOnOutOfMemoryError"
 	))
-}
-tasks.named<BootBuildImage>("bootBuildImage") {
+
 	imageName.set("example.com/library/${project.name}")
-}
-tasks.named<BootBuildImage>("bootBuildImage") {
+
 	buildpacks.set(listOf("file:///path/to/example-buildpack.tgz", "urn:cnb:builder:paketo-buildpacks/java"))
 }
+
 tasks.named<BootBuildImage>("bootBuildImage") {
 	imageName.set("docker.example.com/library/${project.name}")
 	publish.set(true)
@@ -471,23 +469,19 @@ publishing {
 }
 
 tasks.named<BootRun>("bootRun") {
-	mainClass.set("com.example.ExampleApplication")
-}
-springBoot {
-	mainClass.set("com.example.ExampleApplication")
-}
-
-tasks.named<BootRun>("bootRun") {
 	optimizedLaunch.set(false)
-}
-application {
-	mainClass.set("com.example.ExampleApplication")
 }
 
 tasks.named<BootRun>("bootRun") {
 	systemProperty("com.example.property", findProperty("example") ?: "default")
 }
+*/
 
+
+
+/*
+
+// spring-boot logging
 
 java -jar target/spring-boot-logging-0.0.1-SNAPSHOT.jar --trace
 
@@ -504,11 +498,5 @@ mvn spring-boot:run
 ./gradlew bootRun -Pargs=--logging.level.org.springframework=TRACE,--logging.level.com.baeldung=TRACE
 
 ./gradlew bootRun -Pargs=--logging.level.org.springframework=TRACE,--logging.level.com.baeldung=TRACE
-
-
-
-application.properties
- logging.level.root=WARN
- logging.level.com.baeldung=TRACE
 
 */

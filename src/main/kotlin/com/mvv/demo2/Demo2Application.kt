@@ -19,6 +19,10 @@ class Demo2Application {
 }
 
 fun main(args: Array<String>) {
+	val log: Logger = LoggerFactory.getLogger(Demo2Application::class.java)
+	val cmd = ProcessHandle.current().info().commandLine().orElse(null)
+	log.info("### App is run as \n  $cmd")
+
 	// System.setProperty("spring.docker.compose.enabled", "false")
 	runApplication<Demo2Application>(*args)
 }

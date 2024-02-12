@@ -1,3 +1,4 @@
+//import org.graalvm.buildtools.gradle.tasks.BuildNativeImageTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -15,7 +16,21 @@ version = "0.0.1-SNAPSHOT"
 
 java {
 	sourceCompatibility = JavaVersion.VERSION_17
+
+	//toolchain {
+	//	languageVersion.set(JavaLanguageVersion.of(21))
+	//	vendor = JvmVendorSpec.GRAAL_VM
+	//	implementation = JvmImplementation.VENDOR_SPECIFIC
+	//}
+
+	//compile {
+	//
+	//}
 }
+
+//compileJava.options.fork = true
+//compileJava.options.forkOptions.executable = '/path_to_javac'
+
 
 idea {
 	module {
@@ -29,6 +44,117 @@ idea {
 springBoot {
 	mainClass = "com.mvv.demo2.Demo2ApplicationKt"
 }
+
+//tasks.named<Jar>("jar") {
+//	from(collectReachabilityMetadata)
+//}
+
+graalvmNative {
+
+	// There are cases where you might want to disable native testing support
+	// testSupport = false
+
+	metadataRepository {
+		enabled = true
+		// version = "0.1.0"
+		// uri(file("metadata-repository"))
+
+		// Exclude this library from automatic metadata
+		// repository search
+		// excludedModules.add("com.company:some-library")
+
+		// Force the version of the metadata for a particular library
+		// moduleToConfigVersion.put("com.company:some-library", "3")
+	}
+
+	// see https://graalvm.github.io/native-build-tools/0.9.20/gradle-plugin.html
+	//
+	agent {
+		defaultMode = "standard" // Default agent mode if one isn't specified using `-Pagent=mode_name`
+		enabled = true // Enables the agent
+
+		trackReflectionMetadata = true
+
+		//path = "/software/graalvm-jdk-21.0.2+13.1/lib/libnative-image-agent.so"
+
+		// Copies metadata collected from tasks into the specified directories.
+		metadataCopy {
+			inputTaskNames.add("test") // Tasks previously executed with the agent attached.
+			outputDirectories.add("src/main/resources/META-INF/native-image")
+			mergeWithExisting = true // Instead of copying, merge with existing metadata in the output directories.
+		}
+
+		// By default, if `-Pagent` is specified, all tasks that extend JavaForkOptions are instrumented.
+        // This can be limited to only specific tasks that match this predicate.
+		//tasksToInstrumentPredicate = { it -> true }
+	}
+
+	//useArgFile = true
+
+	binaries {
+
+		//configure {
+		//
+		//}
+
+		//jvmArgs = ""
+
+		named("main") {
+			// mainClass =
+			// fallback = false
+			// quickBuild = true
+
+			//javaLauncher.set(javaToolchains.launcherFor {
+			//	languageVersion.set(JavaLanguageVersion.of(8))
+			//	vendor.set(JvmVendorSpec.matching("GraalVM Community"))
+			//})
+
+			//toolchainDetection = false
+
+			// If set to true, this will build a fat jar of the image classpath
+			// instead of passing each jar individually to the classpath.
+			// This option can be used in case the classpath is too long and that
+			// invoking native image fails, which can happen on Windows.
+			// Defaults to true for Windows, and false otherwise.
+			//
+			// useFatJar = true
+
+			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
+
+			// will be used by the native-image builder process
+			//
+			verbose = true
+			// SharedLibrary  // Gets the value which determines if shared library is being built.
+			// BuildArgs
+			// SystemProperties
+			// EnvironmentVariables
+			// Classpath
+			// JvmArgs
+
+			// When set to true, the compiled binaries will be generated with PGO instrumentation support.
+			// pgoInstrument = true
+			// pgoProfilesDirectory =
+		}
+
+		//test {
+		//	buildArgs.addAll('--verbose', '-O0')
+		//}
+	}
+
+	// The plugin will then automatically create the following tasks:
+	// nativeIntegTestCompile, to compile a native image using the integTest source set
+    // nativeIntegTest, to execute the tests in native mode
+	//
+	//registerTestBinary("integTest") {
+	//	usingSourceSet(sourceSets.getByName("integTest"))
+	//	forTestTask(tasks.named<Test>("integTest"))
+	//}
+}
+
+//tasks.named<BuildNativeImageTask>("nativeCompile") {
+//	classpathJar.set(myFatJar.flatMap { it.archiveFile })
+//}
+
 
 /*
 graalvmNative {
@@ -112,7 +238,30 @@ tasks.withType<Test> {
 	//println("debugOptions $debugOptions")
 	//println("executable $executable")
 
-	debug = true
+	// forkEvery = 100
+
+	// Parallel tests:
+	//
+	// gradle.properties
+	//    org.gradle.parallel=true
+	//
+	// gradle <task> --parallel
+	//
+	//maxParallelForks = Runtime.getRuntime().availableProcessors().intdiv(2) ?: 1
+	//maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).takeIf { it > 0 } ?: 1
+	//maxParallelForks = Runtime.getRuntime().availableProcessors()
+	//maxParallelForks = 1
+
+	// gradle <task> --daemon
+	//
+	// gradle.properties
+	//    org.gradle.daemon=true
+
+	debug = false
+	debugOptions {
+		suspend = false
+	}
+
 	testLogging.showStandardStreams = true
 
 	//testLogging.setShowExceptions(boolean var1);

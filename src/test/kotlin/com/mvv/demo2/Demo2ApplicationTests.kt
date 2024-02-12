@@ -5,11 +5,9 @@ import com.mvv.tests.Credentials
 import com.mvv.tests.httpGetString
 import com.mvv.tests.httpGetString_byStdUrl
 import com.mvv.tests.useAssertJSoftAssertions
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.data.domain.Sort
 import org.springframework.test.context.TestPropertySource
 
 
@@ -29,10 +27,8 @@ internal class Demo2ApplicationTests {
 	private var port: Int = -1
 
 	@Test
-	fun forGraalVM() {
-		val cls = loadClass1("org.springframework.data.domain.Unpaged")
-		val instance = cls.getDeclaredConstructor(Sort::class.java).newInstance()
-		assertThat(instance).isNotNull()
+	fun test_forGraalVM() {
+		forGraalVM()
 	}
 
 	@Test

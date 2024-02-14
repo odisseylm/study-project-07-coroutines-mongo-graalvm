@@ -8,10 +8,18 @@ Build
  - `./gradlew :clean :test`
  - `./gradlew :clean :test :compileNative`
  - `./gradlew :nativeTest`
+ - `./gradlew :clean :compileKotlin`
+ - `./gradlew :test --rerun`  // forcing tests to run
+ - `./gradlew :build -x test` // skip tests
+ - `./gradlew :test  --tests "com.mvv.demo2.GraalVMTest.forGraalVM" --rerun`
+ - `./gradlew :test --stacktrace -Dorg.gradle.debug=true --no-daemon`
+
+
+Useful commands
+ - `./gradlew tasks --all`
 
 
 Tasks
- - 
  - bootBuildImage
 
 
@@ -31,7 +39,12 @@ Docs
    - https://graalvm.github.io/native-build-tools/0.9.28/gradle-plugin.html
    - https://graalvm.github.io/native-build-tools/latest/index.html
 
+ - Gradle
+   - Tests & Integration tests
+     - https://docs.gradle.org/current/userguide/java_testing.html
 
+ - Tests
+   - Use `@DisabledInAotMode` for tests with mocks
 
 
 GraalVM

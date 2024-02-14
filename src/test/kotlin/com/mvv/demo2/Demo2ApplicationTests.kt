@@ -9,8 +9,11 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.TestPropertySource
+//import org.springframework.test.context.aot.DisabledInAotMode
 
 
+//@Disabled
+//@DisabledInAotMode // TODO: Use conditional to skip if current task is ProcessTestAot and it launched under Idea
 @SpringBootTest(
 	classes = [TestDemo2Application::class],
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

@@ -13,6 +13,9 @@ class Demo2Application {
 
 	init {
 		val cmd = ProcessHandle.current().info().commandLine().orElse(null)
+		val javaHome = System.getProperty("java.home")
+
+		log.info("### JAVA_HOME: $javaHome")
 		log.info("### App is run as \n  $cmd")
 	    forGraalVM()
 	}

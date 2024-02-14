@@ -1,5 +1,7 @@
 #!/bin/sh
 
+#export JAVA_HOME=Fck666
+
 #
 # Copyright © 2015-2021 the original authors.
 #

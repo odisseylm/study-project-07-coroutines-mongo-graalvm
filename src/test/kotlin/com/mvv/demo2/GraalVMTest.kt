@@ -8,6 +8,8 @@ class GraalVMTest {
 
     @Test
     fun forGraalVM() {
+        println("#### GraalVMTest.forGraalVM()")
+
         val cls = Class.forName("org.springframework.data.domain.Unpaged")
         val instance = cls.getDeclaredConstructor(Sort::class.java)
             .also { it.trySetAccessible() }

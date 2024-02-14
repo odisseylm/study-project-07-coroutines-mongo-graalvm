@@ -1,20 +1,77 @@
 //import org.graalvm.buildtools.gradle.tasks.BuildNativeImageTask
+//import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+//import org.jetbrains.kotlin.gradle.targets.js.npm.includedRange
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.springframework.boot.gradle.tasks.aot.ProcessTestAot
 
 repositories {
 	mavenCentral()
 	//gradlePluginPortal()
 }
 
+println("gradle sys prop java.home: ${System.getProperty("java.home")}")
+println("gradle internal java.home: ${org.gradle.internal.jvm.Jvm.current().javaHome}")
+println("gradle property java.home: ${project.properties["java.home"]}")
+println("gradle org.gradle.java.home: ${project.properties["org.gradle.java.home"]}")
+println("gradle enc JAVA_HOME: ${System.getenv("JAVA_HOME")}")
+println("gradle enc GRAALVM_HOME: ${System.getenv("GRAALVM_HOME")}")
+println("")
+
+val cmd = ProcessHandle.current().info().commandLine().orElse(null)
+println("gradle command line: $cmd}")
+
+
+private val javaHomeInternal = System.getProperty("java.home") ?: ""
+/*
+if (javaHomeInternal.contains("graal", ignoreCase = true)) {
+	//System.getenv()["GRAALVM_HOME"] = javaHomeInternal
+
+	//project.providers.environmentVariable("JAVA_HOME", javaHomeInternal)
+	//ProviderFactory.
+	//project.gradle.provideDelegate()
+	//project.provider()
+	//val javaHomeInternalProvider: Provider<String> = project.provider { javaHomeInternal }
+	//providers.environmentVariable()
+
+}
+*/
+
+/*
+
+// Generates scripts (for *nix and windows) which allow you to build your project with Gradle, without having to install Gradle.
+// See https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/wrapper/Wrapper.html
+tasks.named<Wrapper>("wrapper") {
+}
+
+tasks.named<Test>("test") {
+	doFirst {
+		// it is used only during 'fork'
+		environment("JAVA_HOME", javaHomeInternal)
+		environment("GRAALVM_HOME", javaHomeInternal)
+
+		//javaLauncher.set(JavaLauncher2(javaHomeInternal))
+		//javaLauncher = JavaLauncher2(javaHomeInternal)
+
+		println("### doFirst")
+		println("## 2: " + project.providers.environmentVariable("JAVA_HOME").getOrElse("No Java home"))
+	}
+}
+*/
+
+
 // Mainly used to avoid warnings in Idea
 val springBootVer = "3.2.2"
 val kotlinVer = "1.9.22"
 
 plugins {
+	// For using gradle.local.properties.
+	// See https://github.com/open-jumpco/local-properties-plugin
+	// id("io.jumpco.open.gradle.local-properties") version "1.0.1"
+
 	id("org.springframework.boot") version "3.2.2"
 	id("io.spring.dependency-management") version "1.1.4"
 
-	id("org.graalvm.buildtools.native") version "0.9.28"
+	id("org.graalvm.buildtools.native") version "0.10.0" // "0.9.28"
 
 	idea
 	kotlin("jvm") version "1.9.22"
@@ -85,6 +142,17 @@ java {
 }
 
 
+java {
+	//toolchain {
+	//	languageVersion = JavaLanguageVersion.of(21)
+	//	vendor = JvmVendorSpec.matching("Oracle Corporation")
+	//}
+}
+//tasks.withType<JavaCompile> {
+//	options.compilerArgs.addAll(arrayOf("--release", "12"))
+//}
+
+
 idea {
 	module {
 		isDownloadJavadoc = true
@@ -92,9 +160,11 @@ idea {
 	}
 }
 
+
 springBoot {
 	mainClass = "com.mvv.demo2.Demo2ApplicationKt"
 }
+
 
 graalvmNative {
 
@@ -124,6 +194,7 @@ graalvmNative {
 
 	// See https://graalvm.github.io/native-build-tools/0.9.28/gradle-plugin.html
 	// See https://graalvm.github.io/native-build-tools/latest/gradle-plugin.html
+	// See https://github.com/graalvm/native-build-tools/tree/master/samples
 	//
 	agent {
 		enabled = true // Enables the agent
@@ -160,7 +231,15 @@ graalvmNative {
 
 	binaries {
 
-		//jvmArgs = ""
+		named("test") {
+			verbose = true
+			richOutput = true  // Determines if native-image building should be done with rich output
+			quickBuild = true // Determines if image is being built in quick build mode (alternatively use GRAALVM_QUICK_BUILD environment variable, or add --native-quick-build to the CLI)
+			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
+
+			// Seems now it does not work
+			javaLauncher = getGraalJavaLauncher()
+		}
 
 		named("main") {
 
@@ -175,6 +254,9 @@ graalvmNative {
 
 			// mainClass =
 			// fallback = false   // Sets the fallback mode of native-image, defaults to false
+
+			// Seems now it does not work
+			javaLauncher = getGraalJavaLauncher()
 
 			// toolchainDetection = false
 			// javaLauncher = javaToolchains.launcherFor {
@@ -255,14 +337,176 @@ graalvmNative {
 
 }
 
+tasks.named<ProcessTestAot>("processTestAot") {
+	fixUninitializedGraalVMNoJavaLaunchers()
+	// need to do some fixes a bit later due to later registered GraalVM actions
+	doLast { fixUninitializedGraalVMNoJavaLaunchers() }
+}
+
+fun getGraalJavaLauncher(): Provider<JavaLauncher> {
+
+	val javaLauncherProvider: Provider<JavaLauncher> = javaToolchains.launcherFor {
+		languageVersion = JavaLanguageVersion.of(21)
+		//vendor = JvmVendorSpec.GRAAL_VM // Does not work
+		JvmVendorSpec.matching("GraalVM") // or "GraalVM Community"
+	}
+
+	val executablePath = javaLauncherProvider.get().executablePath
+	val isGraalVM = executablePath.toString().contains("graal", ignoreCase = true)
+
+	if (!isGraalVM) throw IllegalStateException("Seems JDK [$executablePath] is not GraalVM.")
+
+	return javaLauncherProvider
+}
+fun getGraalJavaCompiler(): Provider<JavaCompiler> {
+	val javaCompiler = javaToolchains.compilerFor {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+	return javaCompiler
+}
+
+fun fixUninitializedGraalVMNoJavaLaunchers() {
+
+	val javaLauncherProvider = getGraalJavaLauncher()
+	val javaLauncher = javaLauncherProvider.get()
+
+	println("## JavaLauncher ${javaLauncher.executablePath}")
+
+	val fixCandidates: List<Pair<String, Action<*>>> = tasks.flatMap { task ->
+			task.actions.mapNotNull { taskAction ->
+				try {
+					val unwrappedAction = taskAction.javaClass.getDeclaredField("action").also { it.trySetAccessible() }.get(taskAction)
+					val ao = unwrappedAction as org.graalvm.buildtools.gradle.tasks.actions.MergeAgentFilesAction
+					Pair(task.name, ao)
+				}
+				catch (ignore: Exception) { null }
+			}
+		}
+
+	// fixing uninitialized MergeAgentFilesAction.noLauncherProperty
+	val fixedTaskNames: List<String> = fixCandidates.mapNotNull { taskNameAndAction ->
+
+			// fixing
+			val action = taskNameAndAction.second
+
+			@Suppress("UNCHECKED_CAST")
+			val launchProp = action.javaClass.getDeclaredField("noLauncherProperty")
+				.also { it.trySetAccessible() }
+				.get(action) as Property<JavaLauncher>
+
+			val toFix = !launchProp.isPresent
+			if (toFix) {
+				println("## Setting/fixing noLauncherProperty for ${taskNameAndAction.first}")
+				launchProp.set(javaLauncherProvider)
+			}
+
+			launchProp.get() // to validate
+
+			if (toFix) taskNameAndAction.first else null
+		}
+
+	println("## fixedTasks $fixedTaskNames")
+}
+
+// Tasks:
+//   init
+// Build tasks:
+//   collectReachabilityMetadata, nativeCompile, nativeRun, nativeTestCompile
+//   compileAotJava, compileAotKotlin, compileAotTestJava, compileAotTestKotlin
+//   nativeCompileClasspathJar, nativeTestCompileClasspathJar, nativeBuild, nativeTestBuild
+//   processAot, processAotResources, processAotTestResources, processTestAot,
+//
+// Test & Run tasks:
+//   bootRun, bootTestRun, test, nativeTest
+
+
+tasks.withType<JavaCompile>().configureEach {
+	javaCompiler = getGraalJavaCompiler()
+}
+
+/*
+kotlinExtension.jvmToolchain {
+	// JavaToolchainSpec
+	languageVersion = JavaLanguageVersion.of(17)
+	// Optional: vendor.set(JvmVendorSpec.[VENDOR])
+}
+kotlin {
+	jvmToolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+	// Or shorter:
+	//jvmToolchain(<MAJOR_JDK_VERSION>)
+	// For example:
+	jvmToolchain(21)
+}
+
+
+// See https://kotlinlang.org/docs/gradle-configure-project.html#associate-compiler-tasks
+tasks.withType<UsesKotlinJavaToolchain>().configureEach {
+    kotlinJavaToolchain.jdk.use(
+        "/path/to/local/jdk", // Put a path to your JDK
+        JavaVersion.<LOCAL_JDK_VERSION> // For example, JavaVersion.17
+    )
+}
+
+or
+
+val service = project.extensions.getByType<JavaToolchainService>()
+val customLauncher = service.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(<MAJOR_JDK_VERSION>))
+}
+project.tasks.withType<UsesKotlinJavaToolchain>().configureEach {
+    kotlinJavaToolchain.toolchain.use(customLauncher)
+}
+*/
 tasks.withType<KotlinCompile> {
+
+	//jvmToolchain {
+	//	(this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(17))
+	//}
+
+	//compilerOptions {
+	//	apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9
+	//	languageVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9
+	//	progressiveMode = true
+	//}
+
 	kotlinOptions {
+		//languageVersion = ""
+		//apiVersion = ""
+
+		//options.languageVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9
+		//options.apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9
+		//options.progressiveMode = true
+
+		//verbose = true
+		//allWarningsAsErrors = true
+
 		freeCompilerArgs += "-Xjsr305=strict"
 		jvmTarget = "17"
 	}
 }
 
 tasks.withType<Test> {
+
+	// To avoid caching (and using --rerun) (one of):
+	//  systemProperty "random.testing.seed", new Random().nextInt()
+	//  inputs.property "integration.date", LocalDate.now()
+	//  test.outputs.upToDateWhen {false}
+
+
+	//setIncludes(listOf(
+	//	//"com.mvv.demo2.GraalVMTest.forGraalVM",
+	//	"com.mvv.demo2.GraalVMTest*",
+	//	//"com.mvv.demo2.GraalVMTest*",
+	//	//"*",
+	//))
+
+	filter {
+		//includeTestsMatching("*UiCheck")
+		//includeTestsMatching("*GraalVMTest*")
+		includeTestsMatching("com.mvv.demo2.GraalVMTest.forGraalVM")
+	}
 
 	// See https://docs.gradle.org/current/userguide/java_testing.html
 

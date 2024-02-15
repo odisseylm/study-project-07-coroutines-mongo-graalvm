@@ -1,40 +1,167 @@
-//import org.graalvm.buildtools.gradle.tasks.BuildNativeImageTask
-//import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
-//import org.jetbrains.kotlin.gradle.targets.js.npm.includedRange
+import com.adarshr.gradle.testlogger.TestLoggerExtension
+import com.adarshr.gradle.testlogger.theme.ThemeType
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.springframework.boot.gradle.tasks.aot.ProcessTestAot
+import java.io.ByteArrayOutputStream
+import java.lang.management.ManagementFactory
+import java.lang.management.RuntimeMXBean
+import java.util.EnumSet
+
 
 repositories {
 	mavenCentral()
 	//gradlePluginPortal()
 }
 
-println("gradle sys prop java.home: ${System.getProperty("java.home")}")
-println("gradle internal java.home: ${org.gradle.internal.jvm.Jvm.current().javaHome}")
-println("gradle property java.home: ${project.properties["java.home"]}")
-println("gradle org.gradle.java.home: ${project.properties["org.gradle.java.home"]}")
-println("gradle enc JAVA_HOME: ${System.getenv("JAVA_HOME")}")
-println("gradle enc GRAALVM_HOME: ${System.getenv("GRAALVM_HOME")}")
-println("")
-
-val cmd = ProcessHandle.current().info().commandLine().orElse(null)
-println("gradle command line: $cmd}")
-
-
-private val javaHomeInternal = System.getProperty("java.home") ?: ""
-/*
-if (javaHomeInternal.contains("graal", ignoreCase = true)) {
-	//System.getenv()["GRAALVM_HOME"] = javaHomeInternal
-
-	//project.providers.environmentVariable("JAVA_HOME", javaHomeInternal)
-	//ProviderFactory.
-	//project.gradle.provideDelegate()
-	//project.provider()
-	//val javaHomeInternalProvider: Provider<String> = project.provider { javaHomeInternal }
-	//providers.environmentVariable()
-
+buildscript {
+	dependencies {
+		classpath("org.apache.commons:commons-lang3:3.12.0")
+		classpath("org.apache.commons:commons-exec:1.3")
+	}
 }
-*/
+
+
+private fun Iterable<String>.toCommandLine(): org.apache.commons.exec.CommandLine =
+	org.apache.commons.exec.CommandLine(this.first())
+		.also { cl -> this.asSequence().drop(1).forEach { cl.addArgument(it) } }
+
+fun commandLine(vararg args: String) = args.asIterable().toCommandLine()
+
+
+private fun executeAndReturnContent(vararg args: String): String {
+	val executor = org.apache.commons.exec.DefaultExecutor()
+
+	val contentStream = ByteArrayOutputStream()
+	executor.streamHandler = org.apache.commons.exec.PumpStreamHandler(contentStream, System.err)
+
+	val res: Int = executor.execute(commandLine(*args))
+	if (res != 0) throw IllegalStateException(args.joinToString(" ") + " failed with code $res.")
+
+	return contentStream.toString(Charsets.UTF_8)
+}
+
+fun getProcessCommandLine(pid: Long): String {
+	val isLinux = org.apache.commons.lang3.SystemUtils.IS_OS_LINUX
+	return if (isLinux) {
+		val res = executeAndReturnContent("cat", "/proc/${pid}/cmdline")
+		val cmdLine: String = res.toCharArray().map { ch -> if (ch == 0.toChar()) ' ' else ch }.joinToString("")
+		cmdLine
+	} else {
+		ProcessHandle.of(pid).flatMap { it.info().commandLine() }.orElse("")
+	}
+}
+
+
+private fun CharSequence?.isNotBlank(): Boolean = !this.isNullOrBlank()
+private fun sysProp(key: String): String? = System.getProperty(key)
+private fun isSysPropNotBlank(key: String): Boolean = sysProp(key).isNotBlank()
+private fun <T> Collection<T>.containsOneOf(vararg values: T): Boolean = values.any { it in this }
+
+fun isLaunchedByIdea(): Boolean {
+	val isLaunchedByIdea = sysProp("idea.active") == "true"
+			&& isSysPropNotBlank("idea.version")
+	return isLaunchedByIdea
+}
+
+
+fun hasTestRequest(): Boolean {
+	val taskNamesOnly =gradle.startParameter.taskRequests.mapNotNull { if (it.args.isEmpty()) null else it.args[0] }
+	// Add there your integration task names if you need it.
+
+	val hasTestTask = taskNamesOnly.containsOneOf(":test", "test")
+	// or if you want more complicated matching
+	//val hasTestTask = taskNamesOnly.find { it == ":test" || it == "test" } != null
+	return hasTestTask
+}
+
+
+fun isDebugging(): Boolean {
+
+	// jdk.debug = release
+	// idea.debugger.dispatch.addr = 127.0.0.1
+	// idea.debugger.dispatch.port = 39533
+	//
+	val isIdeaDebug = isSysPropNotBlank("idea.debugger.dispatch.addr")
+			&& isSysPropNotBlank("idea.debugger.dispatch.port")
+
+	val allArgs = gradle.startParameter.taskRequests.flatMap { it.args }
+	val cmdLineHasDebugParam1 = allArgs.contains("--debug-jvm")
+
+	val isStartedByGradle = sysProp("org.gradle.appname") in listOf("gradle", "gradlew")
+	val cmdLineHasDebugParam2 = isStartedByGradle && ProcessHandle.current()
+		.parent()
+		.flatMap { it.info().arguments().map { args -> args.contains("--debug-jvm") } }
+		.orElse(false)
+
+	return isIdeaDebug || cmdLineHasDebugParam1 || cmdLineHasDebugParam2
+}
+
+fun dumpSystem() {
+
+	println("\n\n--------------------------------------------------------------------------------\n\n")
+
+	println("Gradle script params:")
+	println(" sys prop java.home: ${sysProp("java.home")}")
+	println(" internal java.home: ${org.gradle.internal.jvm.Jvm.current().javaHome}")
+	println(" property java.home: ${project.properties["java.home"]}")
+	println(" org.gradle.java.home: ${project.properties["org.gradle.java.home"]}")
+	println(" env JAVA_HOME: ${System.getenv("JAVA_HOME")}")
+	println(" env GRAALVM_HOME: ${System.getenv("GRAALVM_HOME")}")
+	println("")
+
+	val runtimeBean: RuntimeMXBean = ManagementFactory.getRuntimeMXBean()
+	println("Current inputJvmArguments: \n${runtimeBean.inputArguments.joinToString("\n") { "  $it" }}")
+
+	val sysPropsAsText = System.getProperties().entries
+		.sortedBy { it.key as String }
+		.joinToString("\n") { "  ${it.key} = ${it.value}" }
+	println("System props: \n$sysPropsAsText")
+
+	println("\nIs launched by Idea : ${isLaunchedByIdea()}")
+
+	println("\n---------------------------- Current process ----------------------------\n\n")
+	val currentProcess = ProcessHandle.current()
+	dumpProcess(currentProcess)
+
+	println("\n---------------------------- Parent process ----------------------------\n\n")
+	currentProcess.parent().ifPresent { dumpProcess(it) }
+
+	println("\n---------------------------- Parent-parent process ----------------------------\n\n")
+	currentProcess.parent().flatMap { it.parent() }.ifPresent { dumpProcess(it) }
+
+	//Thread.sleep(60_000)
+	println("\n\n------------------------------------------------------------------------\n\n")
+}
+
+fun dumpProcess(process: ProcessHandle) {
+
+	println("Process ID: ${process.pid()}")
+	println("Sub-processes count: ${process.children().count()}")
+
+	val processInfo = process.info()
+	println("Process command: ${processInfo.command().orElse("")}")
+
+	val cmd: String = processInfo.commandLine().orElse("")
+	println("Process command line: $cmd")
+
+	val cmd2: String = getProcessCommandLine(process.pid())
+	println("\nProcess command line: $cmd2")
+
+	val cmdArgs: Array<String> = processInfo.arguments().orElse(emptyArray())
+	val cmdArgsAsText = cmdArgs.joinToString("\n") { "  $it" }
+	println("\nProcess args: $cmdArgsAsText")
+
+	//Thread.sleep(60_000)
+	//println("\n\n------------------------------------------------------------------------\n\n")
+}
+
+
+println("## gradle.startParameter.taskNames: ${gradle.startParameter.taskNames}")
+println("## gradle.startParameter.taskRequests: ${gradle.startParameter.taskRequests.map { it.args }}")
+
+dumpSystem()
 
 /*
 
@@ -73,6 +200,8 @@ plugins {
 
 	id("org.graalvm.buildtools.native") version "0.10.0" // "0.9.28"
 
+	id("com.adarshr.test-logger") version "4.0.0" apply false
+
 	idea
 	kotlin("jvm") version "1.9.22"
 	kotlin("plugin.spring") version "1.9.22"
@@ -92,6 +221,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webflux:$springBootVer")
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.2")
 
+	implementation("org.apache.commons:commons-lang3:3.12.0")
 	implementation("commons-io:commons-io:2.15.1")
 
 	implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.2.2")
@@ -118,6 +248,11 @@ dependencies {
 	testImplementation("io.projectreactor:reactor-test:3.5.4")
 	testImplementation("org.springframework.security:spring-security-test:6.0.2")
 	testImplementation("org.testcontainers:mongodb:1.19.5")
+
+	//configurations.runtime.resolvedConfiguration.resolvedArtifacts.each { ResolvedArtifact ra ->
+	//	ModuleVersionIdentifier id = ra.moduleVersion.id
+	//			runtimeSources "${id.group}:${id.name}:${id.version}:sources"
+	//}
 }
 
 dependencyManagement {
@@ -197,7 +332,15 @@ graalvmNative {
 	// See https://github.com/graalvm/native-build-tools/tree/master/samples
 	//
 	agent {
-		enabled = true // Enables the agent
+		// Enables the agent
+		//enabled = true
+
+		// Workarounds for testing and/or for test debugging if you have error
+		//   JVMTI call failed with JVMTI_ERROR_NOT_AVAILABLE
+		//
+		//enabled = !isLaunchedByIdea()
+		//enabled = !hasTestRequest()
+		enabled = !isDebugging() // TODO: try to solve JVMTI_ERROR_NOT_AVAILABLE in other way
 
 		defaultMode = "standard" // Default agent mode if one isn't specified using `-Pagent=mode_name`
 		// Modes:
@@ -251,6 +394,9 @@ graalvmNative {
 			quickBuild = false // Determines if image is being built in quick build mode (alternatively use GRAALVM_QUICK_BUILD environment variable, or add --native-quick-build to the CLI)
 
 			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
+			// native-image -g -H:+SourceLevelDebug -H:-DeleteLocalSymbols Hello
+			// buildArgs.add("-H:+SourceLevelDebug")
+			// buildArgs.add("-H:-DeleteLocalSymbols")
 
 			// mainClass =
 			// fallback = false   // Sets the fallback mode of native-image, defaults to false
@@ -341,6 +487,8 @@ tasks.named<ProcessTestAot>("processTestAot") {
 	fixUninitializedGraalVMNoJavaLaunchers()
 	// need to do some fixes a bit later due to later registered GraalVM actions
 	doLast { fixUninitializedGraalVMNoJavaLaunchers() }
+
+	onlyIf { !isLaunchedByIdea() }
 }
 
 fun getGraalJavaLauncher(): Provider<JavaLauncher> {
@@ -487,6 +635,16 @@ tasks.withType<KotlinCompile> {
 	}
 }
 
+//tasks.withType<BootRun> {
+//	jvmArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:32323")
+//}
+
+
+// For experiments to test what is better :-)
+val useAdarshrTestLoggerPlugin = true
+
+if (useAdarshrTestLoggerPlugin) apply(plugin = "com.adarshr.test-logger")
+
 tasks.withType<Test> {
 
 	// To avoid caching (and using --rerun) (one of):
@@ -505,20 +663,12 @@ tasks.withType<Test> {
 	filter {
 		//includeTestsMatching("*UiCheck")
 		//includeTestsMatching("*GraalVMTest*")
-		includeTestsMatching("com.mvv.demo2.GraalVMTest.forGraalVM")
+		//includeTestsMatching("com.mvv.demo2.GraalVMTest.forGraalVM")
 	}
 
 	// See https://docs.gradle.org/current/userguide/java_testing.html
 
 	useJUnitPlatform()
-
-	//jvmArgs(patchArgs)
-	//println("jvmArgs $jvmArgs")
-	//println("allJvmArgs $allJvmArgs")
-	//println("classpath $classpath")
-	//println("bootstrapClasspath $bootstrapClasspath")
-	//println("debugOptions $debugOptions")
-	//println("executable $executable")
 
 	// forkEvery = 100
 
@@ -555,24 +705,59 @@ tasks.withType<Test> {
 	// Skip an actual test execution
 	// dryRun = true
 
-	// Show standard out and standard error of the test JVM(s) on the console
-	testLogging.showStandardStreams = true
-
-	// testLogging.showExceptions = true/false
-	// testLogging.showCauses = true/false
-	// testLogging.showStackTraces = true/false
-	// testLogging.exceptionFormat = true/false
-	// testLogging.stackTraceFilters = true/false
-	// testLogging.showExceptions = true/false
-	// testLogging.showExceptions = true/false
-	// testLogging.showExceptions = true/false
-
-
 	// reports.html.required = false
 	//
 	// testLogging {
 	//	debug
 	// }
+
+	testLogging {
+
+		if (useAdarshrTestLoggerPlugin) {
+			showStandardStreams = false
+			events = EnumSet.noneOf(TestLogEvent::class.java)
+		}
+		else {
+
+			//events = TestLogEvent.values().toSet()
+			//events = setOf(TestLogEvent.STARTED, TestLogEvent.PASSED, TestLogEvent.SKIPPED, TestLogEvent.FAILED)
+			events = setOf(TestLogEvent.PASSED, TestLogEvent.FAILED)
+
+			// There is no standard gradle 'showFailedStandardStreams'
+			// showStandardStreams = true
+			showStandardStreams = false
+
+			exceptionFormat = TestExceptionFormat.FULL
+			showExceptions = true
+			showCauses = true
+			showStackTraces = true
+
+			// ??? debug, info, warn
+			//debug {
+			//	events = setOf(TestLogEvent.STARTED, TestLogEvent.FAILED, TestLogEvent.PASSED, TestLogEvent.SKIPPED, TestLogEvent.STANDARD_ERROR, TestLogEvent.STANDARD_OUT)
+			//	exceptionFormat = TestExceptionFormat.FULL
+			//}
+			//info.events = debug.events
+			//info.exceptionFormat = debug.exceptionFormat
+
+			//afterTest(KotlinClosure2({ desc: TestDescriptor, result: TestResult ->
+			//	val output = "Class name: ${desc.className}, Test name: ${desc.name},  (Test status: ${result.resultType})"
+			//	println( '\n' + output)
+			//}))
+
+			afterSuite(KotlinClosure2({ desc: TestDescriptor, result: TestResult ->
+				if (desc.parent != null) { // will match the outermost suite
+					//val output = "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} passed, ${result.failedTestCount} failed, ${result.skippedTestCount} skipped)"
+					val testSrc = if (desc.className == null) " ALL" else " ${desc.displayName}"
+					val output = "Results${testSrc}: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} passed, ${result.failedTestCount} failed, ${result.skippedTestCount} skipped)"
+					val startItem = "|  "
+					val endItem = "  |"
+					val repeatLength = startItem.length + output.length + endItem.length
+					println("\n" + ("-".repeat(repeatLength)) + '\n' + startItem + output + endItem + '\n' + ("-".repeat(repeatLength)))
+				}
+			}))
+		}
+	}
 
 	reports {
 		junitXml.apply {
@@ -612,6 +797,63 @@ tasks.withType<Test> {
 	// jvmArgs(arrayOf("-XX:MaxPermSize=256m"))
 	// jvmArgs("-XX:MaxPermSize=256m")
 }
+
+
+// For "com.adarshr.test-logger"
+// See https://github.com/radarsh/gradle-test-logger-plugin
+//
+if (useAdarshrTestLoggerPlugin)
+configure<TestLoggerExtension> { // or use => testlogger { }
+	theme = ThemeType.STANDARD  // Passed/Failed is shown as text PASSED/FAILED
+	//theme = ThemeType.MOCHA   // Passed/Failed is shown as tick
+	//showExceptions = true
+	//showStackTraces = true
+	//showFullStackTraces = false
+	//showCauses = true
+	//slowThreshold = 2000
+	//showSummary = true
+	//showSimpleNames = false
+	//showPassed = true
+	//showSkipped = true
+	//showFailed = true
+	//showOnlySlow = false
+	//showStandardStreams = false
+	val showStream = false
+	showStandardStreams        = showStream
+	showPassedStandardStreams  = showStream
+	showSkippedStandardStreams = showStream
+	showFailedStandardStreams  = true
+	//logLevel = LogLevel.LIFECYCLE
+}
+
+/*
+task copyJavadocsAndSources {
+	inputs.files configurations.runtime
+			outputs.dir "${buildDir}/download"
+	doLast {
+		def componentIds = configurations.runtime.incoming.resolutionResult.allDependencies.collect { it.selected.id }
+		ArtifactResolutionResult result = dependencies.createArtifactResolutionQuery()
+			.forComponents(componentIds)
+			.withArtifacts(JvmLibrary, SourcesArtifact, JavadocArtifact)
+			.execute()
+		def sourceArtifacts = []
+		result.resolvedComponents.each { ComponentArtifactsResult component ->
+			Set<ArtifactResult> sources = component.getArtifacts(SourcesArtifact)
+			println "Found ${sources.size()} sources for ${component.id}"
+			sources.each { ArtifactResult ar ->
+				if (ar instanceof ResolvedArtifactResult) {
+					sourceArtifacts << ar.file
+				}
+			}
+		}
+
+		copy {
+			from sourceArtifacts
+					into "${buildDir}/download"
+		}
+	}
+}
+*/
 
 
 /*

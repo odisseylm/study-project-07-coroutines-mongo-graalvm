@@ -11,8 +11,18 @@ Build
  - `./gradlew :clean :compileKotlin`
  - `./gradlew :test --rerun`  // forcing tests to run
  - `./gradlew :build -x test` // skip tests
- - `./gradlew :test  --tests "com.mvv.demo2.GraalVMTest.forGraalVM" --rerun`
+ - `./gradlew :test --tests "com.mvv.demo2.GraalVMTest.forGraalVM"`
+ - `./gradlew :test --tests "com.mvv.demo2.GraalVMTest.forGraalVM" -x processTestAot`
+ - `./gradlew :test --tests "com.mvv.demo2.GraalVMTest.forGraalVM" --debug-jvm` >> Error:  JDWP unable to get necessary JVMTI capabilities
+ - `./gradlew :test --tests "com.mvv.demo2.GraalVMTest.forGraalVM" -Dorg.gradle.debug=true --no-daemon` // Debug gradle script
+ - `./gradlew :test --tests "com.mvv.demo2.GraalVMTest.forGraalVM" --rerun`
+ - `./gradlew :test --tests "com.mvv.demo2.GraalVMTest.forGraalVM" --rerun --debug-jvm --no-daemon --no-rebuild` // Debug application/test
+ - `./gradlew :test --continuous`
  - `./gradlew :test --stacktrace -Dorg.gradle.debug=true --no-daemon`
+ - `./gradlew dependencies`
+ - `./gradlew buildEnvironment`
+ - `mvn dependency:sources`
+   - `mvn dependency:sources dependency:resolve -Dclassifier=javadoc`
 
 
 Useful commands
@@ -38,6 +48,7 @@ Docs
    - https://graalvm.github.io/native-build-tools/latest/gradle-plugin.html
    - https://graalvm.github.io/native-build-tools/0.9.28/gradle-plugin.html
    - https://graalvm.github.io/native-build-tools/latest/index.html
+   - https://docs.spring.io/spring-boot/docs/current/gradle-plugin/reference/pdf/spring-boot-gradle-plugin-reference.pdf
 
  - Gradle
    - Tests & Integration tests

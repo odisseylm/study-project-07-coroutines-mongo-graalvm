@@ -1,19 +1,16 @@
 package com.mvv.demo2
 
 import com.mvv.demo2.app.TestDemo2Application
-import com.mvv.tests.Credentials
-import com.mvv.tests.httpGetString
-import com.mvv.tests.httpGetString_byStdUrl
-import com.mvv.tests.useAssertJSoftAssertions
+import com.mvv.tests.*
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.TestPropertySource
-//import org.springframework.test.context.aot.DisabledInAotMode
 
 
 //@Disabled
-//@DisabledInAotMode // TODO: Use conditional to skip if current task is ProcessTestAot and it launched under Idea
+//@Conditional(SkipAotPhaseUnderIdeaCondition::class)
+//@org.springframework.test.context.aot.DisabledInAotMode // T O D O: Use conditional to skip if current task is ProcessTestAot and it launched under Idea
 @SpringBootTest(
 	classes = [TestDemo2Application::class],
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -28,11 +25,6 @@ internal class Demo2ApplicationTests {
 
 	@LocalServerPort
 	private var port: Int = -1
-
-	@Test
-	fun test_forGraalVM() {
-		forGraalVM()
-	}
 
 	@Test
 	fun contextLoads() {
@@ -65,6 +57,22 @@ internal class Demo2ApplicationTests {
 			assertThat(resp2.status).isEqualTo(200)
 			assertThat(resp2.content).contains("all our users count 2")
 		}
+	}
+
+	@Test
+	fun test_forGraalVM() {
+		println("## Demo2ApplicationTests.test_forGraalVM()")
+		forGraalVM()
+	}
+
+	@Test
+	fun someOtherTest2() {
+		println("## Demo2ApplicationTests.someOtherTest2()")
+	}
+
+	@Test
+	fun test_someOtherTest2() {
+		println("## Demo2ApplicationTests.test_someOtherTest2()")
 	}
 
 

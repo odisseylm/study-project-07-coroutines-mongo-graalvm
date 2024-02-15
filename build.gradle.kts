@@ -1,12 +1,17 @@
 import com.adarshr.gradle.testlogger.TestLoggerExtension
 import com.adarshr.gradle.testlogger.theme.ThemeType
+import com.mvv.gradle.graalvm.fixUninitializedGraalVMNoJavaLaunchers
+import com.mvv.gradle.graalvm.getGraalJavaCompiler
+import com.mvv.gradle.graalvm.getGraalJavaLauncher
+import com.mvv.gradle.util.dumpSystem
+
+import com.mvv.gradle.util.isDebugging
+import com.mvv.gradle.util.isLaunchedByIdea
+
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.springframework.boot.gradle.tasks.aot.ProcessTestAot
-import java.io.ByteArrayOutputStream
-import java.lang.management.ManagementFactory
-import java.lang.management.RuntimeMXBean
 import java.util.EnumSet
 
 
@@ -23,174 +28,12 @@ buildscript {
 }
 
 
-private fun Iterable<String>.toCommandLine(): org.apache.commons.exec.CommandLine =
-	org.apache.commons.exec.CommandLine(this.first())
-		.also { cl -> this.asSequence().drop(1).forEach { cl.addArgument(it) } }
-
-fun commandLine(vararg args: String) = args.asIterable().toCommandLine()
-
-
-private fun executeAndReturnContent(vararg args: String): String {
-	val executor = org.apache.commons.exec.DefaultExecutor()
-
-	val contentStream = ByteArrayOutputStream()
-	executor.streamHandler = org.apache.commons.exec.PumpStreamHandler(contentStream, System.err)
-
-	val res: Int = executor.execute(commandLine(*args))
-	if (res != 0) throw IllegalStateException(args.joinToString(" ") + " failed with code $res.")
-
-	return contentStream.toString(Charsets.UTF_8)
-}
-
-fun getProcessCommandLine(pid: Long): String {
-	val isLinux = org.apache.commons.lang3.SystemUtils.IS_OS_LINUX
-	return if (isLinux) {
-		val res = executeAndReturnContent("cat", "/proc/${pid}/cmdline")
-		val cmdLine: String = res.toCharArray().map { ch -> if (ch == 0.toChar()) ' ' else ch }.joinToString("")
-		cmdLine
-	} else {
-		ProcessHandle.of(pid).flatMap { it.info().commandLine() }.orElse("")
-	}
-}
-
-
-private fun CharSequence?.isNotBlank(): Boolean = !this.isNullOrBlank()
-private fun sysProp(key: String): String? = System.getProperty(key)
-private fun isSysPropNotBlank(key: String): Boolean = sysProp(key).isNotBlank()
-private fun <T> Collection<T>.containsOneOf(vararg values: T): Boolean = values.any { it in this }
-
-fun isLaunchedByIdea(): Boolean {
-	val isLaunchedByIdea = sysProp("idea.active") == "true"
-			&& isSysPropNotBlank("idea.version")
-	return isLaunchedByIdea
-}
-
-
-fun hasTestRequest(): Boolean {
-	val taskNamesOnly =gradle.startParameter.taskRequests.mapNotNull { if (it.args.isEmpty()) null else it.args[0] }
-	// Add there your integration task names if you need it.
-
-	val hasTestTask = taskNamesOnly.containsOneOf(":test", "test")
-	// or if you want more complicated matching
-	//val hasTestTask = taskNamesOnly.find { it == ":test" || it == "test" } != null
-	return hasTestTask
-}
-
-
-fun isDebugging(): Boolean {
-
-	// jdk.debug = release
-	// idea.debugger.dispatch.addr = 127.0.0.1
-	// idea.debugger.dispatch.port = 39533
-	//
-	val isIdeaDebug = isSysPropNotBlank("idea.debugger.dispatch.addr")
-			&& isSysPropNotBlank("idea.debugger.dispatch.port")
-
-	val allArgs = gradle.startParameter.taskRequests.flatMap { it.args }
-	val cmdLineHasDebugParam1 = allArgs.contains("--debug-jvm")
-
-	val isStartedByGradle = sysProp("org.gradle.appname") in listOf("gradle", "gradlew")
-	val cmdLineHasDebugParam2 = isStartedByGradle && ProcessHandle.current()
-		.parent()
-		.flatMap { it.info().arguments().map { args -> args.contains("--debug-jvm") } }
-		.orElse(false)
-
-	return isIdeaDebug || cmdLineHasDebugParam1 || cmdLineHasDebugParam2
-}
-
-fun dumpSystem() {
-
-	println("\n\n--------------------------------------------------------------------------------\n\n")
-
-	println("Gradle script params:")
-	println(" sys prop java.home: ${sysProp("java.home")}")
-	println(" internal java.home: ${org.gradle.internal.jvm.Jvm.current().javaHome}")
-	println(" property java.home: ${project.properties["java.home"]}")
-	println(" org.gradle.java.home: ${project.properties["org.gradle.java.home"]}")
-	println(" env JAVA_HOME: ${System.getenv("JAVA_HOME")}")
-	println(" env GRAALVM_HOME: ${System.getenv("GRAALVM_HOME")}")
-	println("")
-
-	val runtimeBean: RuntimeMXBean = ManagementFactory.getRuntimeMXBean()
-	println("Current inputJvmArguments: \n${runtimeBean.inputArguments.joinToString("\n") { "  $it" }}")
-
-	val sysPropsAsText = System.getProperties().entries
-		.sortedBy { it.key as String }
-		.joinToString("\n") { "  ${it.key} = ${it.value}" }
-	println("System props: \n$sysPropsAsText")
-
-	println("\nIs launched by Idea : ${isLaunchedByIdea()}")
-
-	println("\n---------------------------- Current process ----------------------------\n\n")
-	val currentProcess = ProcessHandle.current()
-	dumpProcess(currentProcess)
-
-	println("\n---------------------------- Parent process ----------------------------\n\n")
-	currentProcess.parent().ifPresent { dumpProcess(it) }
-
-	println("\n---------------------------- Parent-parent process ----------------------------\n\n")
-	currentProcess.parent().flatMap { it.parent() }.ifPresent { dumpProcess(it) }
-
-	//Thread.sleep(60_000)
-	println("\n\n------------------------------------------------------------------------\n\n")
-}
-
-fun dumpProcess(process: ProcessHandle) {
-
-	println("Process ID: ${process.pid()}")
-	println("Sub-processes count: ${process.children().count()}")
-
-	val processInfo = process.info()
-	println("Process command: ${processInfo.command().orElse("")}")
-
-	val cmd: String = processInfo.commandLine().orElse("")
-	println("Process command line: $cmd")
-
-	val cmd2: String = getProcessCommandLine(process.pid())
-	println("\nProcess command line: $cmd2")
-
-	val cmdArgs: Array<String> = processInfo.arguments().orElse(emptyArray())
-	val cmdArgsAsText = cmdArgs.joinToString("\n") { "  $it" }
-	println("\nProcess args: $cmdArgsAsText")
-
-	//Thread.sleep(60_000)
-	//println("\n\n------------------------------------------------------------------------\n\n")
-}
-
-
-println("## gradle.startParameter.taskNames: ${gradle.startParameter.taskNames}")
-println("## gradle.startParameter.taskRequests: ${gradle.startParameter.taskRequests.map { it.args }}")
-
-dumpSystem()
-
-/*
-
-// Generates scripts (for *nix and windows) which allow you to build your project with Gradle, without having to install Gradle.
-// See https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/wrapper/Wrapper.html
-tasks.named<Wrapper>("wrapper") {
-}
-
-tasks.named<Test>("test") {
-	doFirst {
-		// it is used only during 'fork'
-		environment("JAVA_HOME", javaHomeInternal)
-		environment("GRAALVM_HOME", javaHomeInternal)
-
-		//javaLauncher.set(JavaLauncher2(javaHomeInternal))
-		//javaLauncher = JavaLauncher2(javaHomeInternal)
-
-		println("### doFirst")
-		println("## 2: " + project.providers.environmentVariable("JAVA_HOME").getOrElse("No Java home"))
-	}
-}
-*/
-
-
 // Mainly used to avoid warnings in Idea
 val springBootVer = "3.2.2"
 val kotlinVer = "1.9.22"
 
 plugins {
+	`kotlin-dsl`
 	// For using gradle.local.properties.
 	// See https://github.com/open-jumpco/local-properties-plugin
 	// id("io.jumpco.open.gradle.local-properties") version "1.0.1"
@@ -203,7 +46,7 @@ plugins {
 	id("com.adarshr.test-logger") version "4.0.0" apply false
 
 	idea
-	kotlin("jvm") version "1.9.22"
+	//kotlin("jvm") version "1.9.22" // TODO: why I had to comment it???
 	kotlin("plugin.spring") version "1.9.22"
 }
 
@@ -265,8 +108,16 @@ dependencyManagement {
 	}
 }
 
+dumpSystem()
+
+
+val javaJdkVersion = 21
+val javaTargetVersion = 17
+val javaSourceCompatibilityVersion = javaTargetVersion
+
 java {
-	sourceCompatibility = JavaVersion.VERSION_17
+	//sourceCompatibility = JavaVersion.VERSION_17
+	sourceCompatibility = JavaVersion.toVersion(javaSourceCompatibilityVersion)
 
 	// toolchain {
 	//	languageVersion = JavaLanguageVersion.of(21)
@@ -381,7 +232,7 @@ graalvmNative {
 			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
 
 			// Seems now it does not work
-			javaLauncher = getGraalJavaLauncher()
+			javaLauncher = getGraalJavaLauncher(javaJdkVersion)
 		}
 
 		named("main") {
@@ -402,7 +253,7 @@ graalvmNative {
 			// fallback = false   // Sets the fallback mode of native-image, defaults to false
 
 			// Seems now it does not work
-			javaLauncher = getGraalJavaLauncher()
+			javaLauncher = getGraalJavaLauncher(javaJdkVersion)
 
 			// toolchainDetection = false
 			// javaLauncher = javaToolchains.launcherFor {
@@ -484,77 +335,13 @@ graalvmNative {
 }
 
 tasks.named<ProcessTestAot>("processTestAot") {
-	fixUninitializedGraalVMNoJavaLaunchers()
+	fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion)
 	// need to do some fixes a bit later due to later registered GraalVM actions
-	doLast { fixUninitializedGraalVMNoJavaLaunchers() }
+	doLast { fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion) }
 
 	onlyIf { !isLaunchedByIdea() }
 }
 
-fun getGraalJavaLauncher(): Provider<JavaLauncher> {
-
-	val javaLauncherProvider: Provider<JavaLauncher> = javaToolchains.launcherFor {
-		languageVersion = JavaLanguageVersion.of(21)
-		//vendor = JvmVendorSpec.GRAAL_VM // Does not work
-		JvmVendorSpec.matching("GraalVM") // or "GraalVM Community"
-	}
-
-	val executablePath = javaLauncherProvider.get().executablePath
-	val isGraalVM = executablePath.toString().contains("graal", ignoreCase = true)
-
-	if (!isGraalVM) throw IllegalStateException("Seems JDK [$executablePath] is not GraalVM.")
-
-	return javaLauncherProvider
-}
-fun getGraalJavaCompiler(): Provider<JavaCompiler> {
-	val javaCompiler = javaToolchains.compilerFor {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
-	return javaCompiler
-}
-
-fun fixUninitializedGraalVMNoJavaLaunchers() {
-
-	val javaLauncherProvider = getGraalJavaLauncher()
-	val javaLauncher = javaLauncherProvider.get()
-
-	println("## JavaLauncher ${javaLauncher.executablePath}")
-
-	val fixCandidates: List<Pair<String, Action<*>>> = tasks.flatMap { task ->
-			task.actions.mapNotNull { taskAction ->
-				try {
-					val unwrappedAction = taskAction.javaClass.getDeclaredField("action").also { it.trySetAccessible() }.get(taskAction)
-					val ao = unwrappedAction as org.graalvm.buildtools.gradle.tasks.actions.MergeAgentFilesAction
-					Pair(task.name, ao)
-				}
-				catch (ignore: Exception) { null }
-			}
-		}
-
-	// fixing uninitialized MergeAgentFilesAction.noLauncherProperty
-	val fixedTaskNames: List<String> = fixCandidates.mapNotNull { taskNameAndAction ->
-
-			// fixing
-			val action = taskNameAndAction.second
-
-			@Suppress("UNCHECKED_CAST")
-			val launchProp = action.javaClass.getDeclaredField("noLauncherProperty")
-				.also { it.trySetAccessible() }
-				.get(action) as Property<JavaLauncher>
-
-			val toFix = !launchProp.isPresent
-			if (toFix) {
-				println("## Setting/fixing noLauncherProperty for ${taskNameAndAction.first}")
-				launchProp.set(javaLauncherProvider)
-			}
-
-			launchProp.get() // to validate
-
-			if (toFix) taskNameAndAction.first else null
-		}
-
-	println("## fixedTasks $fixedTaskNames")
-}
 
 // Tasks:
 //   init
@@ -569,7 +356,7 @@ fun fixUninitializedGraalVMNoJavaLaunchers() {
 
 
 tasks.withType<JavaCompile>().configureEach {
-	javaCompiler = getGraalJavaCompiler()
+	javaCompiler = getGraalJavaCompiler(javaJdkVersion)
 }
 
 /*
@@ -797,6 +584,29 @@ tasks.withType<Test> {
 	// jvmArgs(arrayOf("-XX:MaxPermSize=256m"))
 	// jvmArgs("-XX:MaxPermSize=256m")
 }
+
+
+/*
+// Generates scripts (for *nix and windows) which allow you to build your project with Gradle, without having to install Gradle.
+// See https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/wrapper/Wrapper.html
+
+tasks.named<Wrapper>("wrapper") {
+}
+
+tasks.named<Test>("test") {
+	doFirst {
+		// it is used only during 'fork'
+		environment("JAVA_HOME", javaHomeInternal)
+		environment("GRAALVM_HOME", javaHomeInternal)
+
+		//javaLauncher.set(JavaLauncher2(javaHomeInternal))
+		//javaLauncher = JavaLauncher2(javaHomeInternal)
+
+		println("### doFirst")
+		println("## 2: " + project.providers.environmentVariable("JAVA_HOME").getOrElse("No Java home"))
+	}
+}
+*/
 
 
 // For "com.adarshr.test-logger"

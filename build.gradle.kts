@@ -46,7 +46,7 @@ plugins {
 	id("com.adarshr.test-logger") version "4.0.0" apply false
 
 	idea
-	//kotlin("jvm") version "1.9.22" // TODO: why I had to comment it???
+	kotlin("jvm") version "1.9.22"
 	kotlin("plugin.spring") version "1.9.22"
 }
 

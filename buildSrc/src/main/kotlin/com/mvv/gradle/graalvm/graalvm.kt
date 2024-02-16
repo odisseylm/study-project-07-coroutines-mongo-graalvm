@@ -1,14 +1,8 @@
 package com.mvv.gradle.graalvm
 
-import java.io.ByteArrayOutputStream
-import java.lang.management.ManagementFactory
-import java.lang.management.RuntimeMXBean
-
-import org.gradle.api.invocation.Gradle
 import org.gradle.api.provider.Provider
 import org.gradle.jvm.toolchain.JavaLauncher
 import org.gradle.jvm.toolchain.JavaLanguageVersion
-import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.provider.Property
@@ -17,13 +11,14 @@ import org.gradle.jvm.toolchain.JavaCompiler
 import com.mvv.gradle.kts.javaToolchains
 
 
-fun Project.getGraalJavaLauncher(javaVersion: Int): Provider<JavaLauncher> {
+fun Project.getGraalJavaLauncher(requiredJdkJavaVersion: Int): Provider<JavaLauncher> {
     val project: Project = this
 
     val javaLauncherProvider: Provider<JavaLauncher> = project.javaToolchains.launcherFor {
-        it.languageVersion.set(JavaLanguageVersion.of(javaVersion))
-        //vendor = JvmVendorSpec.GRAAL_VM // Does not work
-        JvmVendorSpec.matching("GraalVM") // or "GraalVM Community"
+        languageVersion.set(JavaLanguageVersion.of(requiredJdkJavaVersion))
+        //vendor.set(JvmVendorSpec.GRAAL_VM)            // Does not work
+        //vendor.set(JvmVendorSpec.matching("GraalVM")) // Does not work
+        //vendor.set(JvmVendorSpec.ORACLE)              // or "GraalVM Community"
     }
 
     val executablePath = javaLauncherProvider.get().executablePath
@@ -36,7 +31,10 @@ fun Project.getGraalJavaLauncher(javaVersion: Int): Provider<JavaLauncher> {
 
 fun Project.getGraalJavaCompiler(javaVersion: Int): Provider<JavaCompiler> {
     val javaCompiler = project.javaToolchains.compilerFor {
-        it.languageVersion.set(JavaLanguageVersion.of(javaVersion))
+        languageVersion.set(JavaLanguageVersion.of(javaVersion))
+        //vendor.set(JvmVendorSpec.GRAAL_VM)            // Does not work
+        //vendor.set(JvmVendorSpec.matching("GraalVM")) // Does not work
+        //vendor.set(JvmVendorSpec.ORACLE)              // or "GraalVM Community"
     }
     return javaCompiler
 }

@@ -3,7 +3,6 @@ import com.adarshr.gradle.testlogger.theme.ThemeType
 import com.mvv.gradle.graalvm.fixUninitializedGraalVMNoJavaLaunchers
 import com.mvv.gradle.graalvm.getGraalJavaCompiler
 import com.mvv.gradle.graalvm.getGraalJavaLauncher
-import com.mvv.gradle.util.dumpSystem
 
 import com.mvv.gradle.util.isDebugging
 import com.mvv.gradle.util.isLaunchedByIdea
@@ -11,6 +10,7 @@ import com.mvv.gradle.util.isLaunchedByIdea
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.springframework.boot.gradle.tasks.aot.ProcessAot
 import org.springframework.boot.gradle.tasks.aot.ProcessTestAot
 import java.util.EnumSet
 
@@ -22,8 +22,6 @@ repositories {
 
 buildscript {
 	dependencies {
-		classpath("org.apache.commons:commons-lang3:3.12.0")
-		classpath("org.apache.commons:commons-exec:1.3")
 	}
 }
 
@@ -33,7 +31,8 @@ val springBootVer = "3.2.2"
 val kotlinVer = "1.9.22"
 
 plugins {
-	`kotlin-dsl`
+	//`kotlin-dsl` // ??? It throws strange logger's conflict error.
+
 	// For using gradle.local.properties.
 	// See https://github.com/open-jumpco/local-properties-plugin
 	// id("io.jumpco.open.gradle.local-properties") version "1.0.1"
@@ -108,7 +107,7 @@ dependencyManagement {
 	}
 }
 
-dumpSystem()
+//dumpSystem()
 
 
 val javaJdkVersion = 21
@@ -128,16 +127,9 @@ java {
 }
 
 
-java {
-	//toolchain {
-	//	languageVersion = JavaLanguageVersion.of(21)
-	//	vendor = JvmVendorSpec.matching("Oracle Corporation")
-	//}
-}
 //tasks.withType<JavaCompile> {
 //	options.compilerArgs.addAll(arrayOf("--release", "12"))
 //}
-
 
 idea {
 	module {
@@ -146,11 +138,15 @@ idea {
 	}
 }
 
-
 springBoot {
 	mainClass = "com.mvv.demo2.Demo2ApplicationKt"
 }
 
+val graalJavaCompiler = getGraalJavaCompiler(javaJdkVersion)
+println("## graalJavaCompiler: ${graalJavaCompiler.get().executablePath}")
+
+val graalJavaLauncher = getGraalJavaLauncher(javaJdkVersion)
+println("## graalJavaLauncher: ${graalJavaLauncher.get().executablePath}")
 
 graalvmNative {
 
@@ -231,8 +227,8 @@ graalvmNative {
 			quickBuild = true // Determines if image is being built in quick build mode (alternatively use GRAALVM_QUICK_BUILD environment variable, or add --native-quick-build to the CLI)
 			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
 
-			// Seems now it does not work
-			javaLauncher = getGraalJavaLauncher(javaJdkVersion)
+			// Seems now it is not really used...
+			javaLauncher = graalJavaLauncher
 		}
 
 		named("main") {
@@ -252,8 +248,8 @@ graalvmNative {
 			// mainClass =
 			// fallback = false   // Sets the fallback mode of native-image, defaults to false
 
-			// Seems now it does not work
-			javaLauncher = getGraalJavaLauncher(javaJdkVersion)
+			// Seems now it is not really used...
+			javaLauncher = graalJavaLauncher
 
 			// toolchainDetection = false
 			// javaLauncher = javaToolchains.launcherFor {
@@ -334,7 +330,15 @@ graalvmNative {
 
 }
 
+tasks.named<ProcessAot>("processAot") {
+	javaLauncher = graalJavaLauncher
+
+	//fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion)
+}
+
 tasks.named<ProcessTestAot>("processTestAot") {
+	javaLauncher = graalJavaLauncher
+
 	fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion)
 	// need to do some fixes a bit later due to later registered GraalVM actions
 	doLast { fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion) }
@@ -355,9 +359,9 @@ tasks.named<ProcessTestAot>("processTestAot") {
 //   bootRun, bootTestRun, test, nativeTest
 
 
-tasks.withType<JavaCompile>().configureEach {
-	javaCompiler = getGraalJavaCompiler(javaJdkVersion)
-}
+//tasks.withType<JavaCompile>().configureEach {
+//	//javaCompiler = getGraalJavaCompiler(javaJdkVersion)
+//}
 
 /*
 kotlinExtension.jvmToolchain {
@@ -433,6 +437,8 @@ val useAdarshrTestLoggerPlugin = true
 if (useAdarshrTestLoggerPlugin) apply(plugin = "com.adarshr.test-logger")
 
 tasks.withType<Test> {
+
+	javaLauncher = graalJavaLauncher
 
 	// To avoid caching (and using --rerun) (one of):
 	//  systemProperty "random.testing.seed", new Random().nextInt()

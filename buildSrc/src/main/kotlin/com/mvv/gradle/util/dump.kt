@@ -24,8 +24,8 @@ fun Gradle.dumpSystem() {
 
     println("\n\n--------------------------------------------------------------------------------\n\n")
 
-    println("## gradle.startParameter.taskNames: ${gradle.startParameter.taskNames}")
-    println("## gradle.startParameter.taskRequests: ${gradle.startParameter.taskRequests.map { it.args }}\n")
+    println("gradle.startParameter.taskNames: ${gradle.startParameter.taskNames}")
+    println("gradle.startParameter.taskRequests: ${gradle.startParameter.taskRequests.map { it.args }}\n")
 
     println("Gradle script params:")
     println(" sys prop java.home: ${sysProp("java.home")}")

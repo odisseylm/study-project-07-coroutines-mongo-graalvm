@@ -20,6 +20,7 @@ Build
  - `./gradlew :test --continuous`
  - `./gradlew :test --stacktrace -Dorg.gradle.debug=true --no-daemon`
  - `./gradlew dependencies`
+ - `./gradlew -q javaToolchains` >> show toolchains
  - `./gradlew buildEnvironment`
  - `mvn dependency:sources`
    - `mvn dependency:sources dependency:resolve -Dclassifier=javadoc`
@@ -56,6 +57,12 @@ Docs
 
  - Tests
    - Use `@DisabledInAotMode` for tests with mocks
+
+
+Custom toolchain locations
+
+ org.gradle.java.installations.fromEnv=JDK8,JRE17
+ org.gradle.java.installations.paths=/custom/path/jdk1.8,/shared/jre11
 
 
 GraalVM

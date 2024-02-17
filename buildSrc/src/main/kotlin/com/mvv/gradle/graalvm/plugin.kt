@@ -10,8 +10,8 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.JavaExec
-import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaCompiler
@@ -20,15 +20,13 @@ import org.gradle.jvm.toolchain.JavaLauncher
 import org.gradle.kotlin.dsl.*
 import javax.inject.Inject
 
-import org.gradle.kotlin.dsl.the
-
 
 enum class DisableCondition {
-    None,
+    None, // Do not use None if it is put into set.
     UnderIDE,
     // Means direct call of tests (not case of running gradle 'build' task).
-    UnderTests,
-    UnderDebug,
+    OnTests,
+    OnDebug,
 }
 
 
@@ -49,9 +47,9 @@ interface GraalVMExtensionFix {
     // no default value
     val jdkVersion: Property<JavaLanguageVersion>
     // default value UnderIDE
-    val disableProcessAot: Property<DisableCondition>
+    val disableProcessAot: SetProperty<DisableCondition>
     // default UnderDebug (to avoid JVMTI call failed with JVMTI_ERROR_NOT_AVAILABLE)
-    val disableAgent: Property<DisableCondition>
+    val disableAgent: SetProperty<DisableCondition>
 }
 
 fun org.gradle.api.Project.graalvmNativeFix(configure: Action<GraalVMExtensionFix>): Unit =
@@ -117,12 +115,12 @@ class FixOfNativeImagePlugin : Plugin<Project> {
         }
 
         val toDisableProcessTestAot: Boolean by lazy {
-            toDisable(ext.disableProcessAot.orElse(DisableCondition.UnderIDE).get())
+            toDisable(ext.disableProcessAot.orElse(setOf(DisableCondition.UnderIDE)).get())
         }
         val toDisableAgent: Boolean by lazy {
             // Workaround for testing and/or for test debugging if you have error
             //   JVMTI call failed with JVMTI_ERROR_NOT_AVAILABLE
-            toDisable(ext.disableAgent.orElse(DisableCondition.UnderDebug).get())
+            toDisable(ext.disableAgent.orElse(setOf(DisableCondition.OnDebug)).get())
         }
 
         tasks.named<Task>("processTestAot") {
@@ -161,11 +159,14 @@ class FixOfNativeImagePlugin : Plugin<Project> {
 
 fun Project.toDisable(disableCondition: DisableCondition): Boolean =
     when (disableCondition) {
-        DisableCondition.None       -> false
-        DisableCondition.UnderIDE   -> project.isLaunchedByIDE()
-        DisableCondition.UnderTests -> project.hasTestRequest()
-        DisableCondition.UnderDebug -> project.isDebugging()
+        DisableCondition.None     -> false
+        DisableCondition.UnderIDE -> project.isLaunchedByIDE()
+        DisableCondition.OnTests  -> project.hasTestRequest()
+        DisableCondition.OnDebug  -> project.isDebugging()
     }
+
+fun Project.toDisable(disableCondition: Iterable<DisableCondition>): Boolean =
+    disableCondition.any { toDisable(it) }
 
 
 public abstract class DefaultGraalVMExtensionFix
@@ -173,8 +174,8 @@ public abstract class DefaultGraalVMExtensionFix
 
     override val useGraalVMToolchain = project.objects.property(SetMode::class.java)
     override val jdkVersion = project.objects.property(JavaLanguageVersion::class.java)
-    override val disableProcessAot = project.objects.property(DisableCondition::class.java)
-    override val disableAgent = project.objects.property(DisableCondition::class.java)
+    override val disableProcessAot = project.objects.setProperty(DisableCondition::class.java)
+    override val disableAgent = project.objects.setProperty(DisableCondition::class.java)
 }
 
 fun org.gradle.api.Project.graalvmNative(configure: Action<GraalVMExtension>): Unit =

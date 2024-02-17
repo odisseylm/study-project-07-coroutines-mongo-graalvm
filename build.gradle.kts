@@ -10,8 +10,10 @@ import com.mvv.gradle.util.isLaunchedByIdea
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.UsesKotlinJavaToolchain
 import org.springframework.boot.gradle.tasks.aot.ProcessAot
 import org.springframework.boot.gradle.tasks.aot.ProcessTestAot
+import org.springframework.boot.gradle.tasks.run.BootRun
 import java.util.EnumSet
 
 
@@ -332,7 +334,6 @@ graalvmNative {
 
 tasks.named<ProcessAot>("processAot") {
 	javaLauncher = graalJavaLauncher
-
 	//fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion)
 }
 
@@ -358,51 +359,22 @@ tasks.named<ProcessTestAot>("processTestAot") {
 // Test & Run tasks:
 //   bootRun, bootTestRun, test, nativeTest
 
+// Seems setting graalJavaCompiler/graalJavaLauncher for kotlin/java compiler is optional.
 
-//tasks.withType<JavaCompile>().configureEach {
-//	//javaCompiler = getGraalJavaCompiler(javaJdkVersion)
-//}
-
-/*
-kotlinExtension.jvmToolchain {
-	// JavaToolchainSpec
-	languageVersion = JavaLanguageVersion.of(17)
-	// Optional: vendor.set(JvmVendorSpec.[VENDOR])
+tasks.withType<JavaCompile>().configureEach {
+	javaCompiler = graalJavaCompiler
 }
-kotlin {
-	jvmToolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
-	// Or shorter:
-	//jvmToolchain(<MAJOR_JDK_VERSION>)
-	// For example:
-	jvmToolchain(21)
-}
-
 
 // See https://kotlinlang.org/docs/gradle-configure-project.html#associate-compiler-tasks
 tasks.withType<UsesKotlinJavaToolchain>().configureEach {
-    kotlinJavaToolchain.jdk.use(
-        "/path/to/local/jdk", // Put a path to your JDK
-        JavaVersion.<LOCAL_JDK_VERSION> // For example, JavaVersion.17
-    )
+	kotlinJavaToolchain.toolchain.use(graalJavaLauncher)
+	//kotlinJavaToolchain.jdk.use(
+	//    graalJavaLauncher.get().metadata.installationPath.asFile, // Put a path to your JDK
+	//    JavaVersion.toVersion(javaJdkVersion), // For example, JavaVersion.17
+	//)
 }
 
-or
-
-val service = project.extensions.getByType<JavaToolchainService>()
-val customLauncher = service.launcherFor {
-    languageVersion.set(JavaLanguageVersion.of(<MAJOR_JDK_VERSION>))
-}
-project.tasks.withType<UsesKotlinJavaToolchain>().configureEach {
-    kotlinJavaToolchain.toolchain.use(customLauncher)
-}
-*/
 tasks.withType<KotlinCompile> {
-
-	//jvmToolchain {
-	//	(this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(17))
-	//}
 
 	//compilerOptions {
 	//	apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9
@@ -426,9 +398,10 @@ tasks.withType<KotlinCompile> {
 	}
 }
 
-//tasks.withType<BootRun> {
-//	jvmArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:32323")
-//}
+tasks.withType<BootRun> {
+	javaLauncher = graalJavaLauncher
+	jvmArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:32323")
+}
 
 
 // For experiments to test what is better :-)

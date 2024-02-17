@@ -6,6 +6,7 @@ import com.mvv.gradle.graalvm.getGraalJavaLauncher
 
 import com.mvv.gradle.util.isDebugging
 import com.mvv.gradle.util.isLaunchedByIdea
+import com.mvv.gradle.util.sysProp
 
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
@@ -36,7 +37,7 @@ plugins {
 
 	// For using gradle.local.properties.
 	// See https://github.com/open-jumpco/local-properties-plugin
-	// id("io.jumpco.open.gradle.local-properties") version "1.0.1"
+	id("io.jumpco.open.gradle.local-properties") version "1.0.1"
 
 	id("org.springframework.boot") version "3.2.2"
 	id("io.spring.dependency-management") version "1.1.4"
@@ -109,7 +110,15 @@ dependencyManagement {
 }
 
 //dumpSystem()
-
+//
+println("## Props from gradle.local.properties")
+println("## local.prop1: ${property("local.prop1")}")
+println("## system java.home: ${sysProp("java.home")}")
+//println("## org.gradle.java.home: ${property("org.gradle.java.home")}")
+//println("## org.gradle.java.installations.paths: ${property("org.gradle.java.installations.paths")}")
+println("## org.gradle.java.home: ${project.ext.properties.getOrDefault("org.gradle.java.home", "")}")
+println("## org.gradle.java.installations.paths: ${project.ext.properties.getOrDefault("org.gradle.java.installations.paths", "")}")
+println("## ")
 
 val javaJdkVersion = 21
 val javaTargetVersion = 17
@@ -334,7 +343,7 @@ graalvmNative {
 
 }
 
-// It includes also "processAot", "processTestAot"
+// It includes also "processAot", "processTestAot", "BootRun"
 tasks.withType<JavaExec>().configureEach {
 	javaLauncher = graalJavaLauncher
 }

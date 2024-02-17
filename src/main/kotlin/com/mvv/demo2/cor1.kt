@@ -237,7 +237,7 @@ fun main13() = runBlocking {
 
         //println("result: $one $two (${one + two})")
 
-        // TODO: avoid using manual
+        // T O D O: avoid using manual
         //when
         runBlocking {
             one.await()

@@ -45,7 +45,7 @@ open class MyAppConfiguration {
 @Configuration
 internal class ApplicationConfiguration {
 
-	// TODO: take values from spring props/@Value
+	// T O D O: take values from spring props/@Value
 
 	private val port = 27018
 	private val host = "localhost"

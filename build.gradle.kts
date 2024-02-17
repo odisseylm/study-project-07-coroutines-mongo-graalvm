@@ -1,18 +1,13 @@
 import com.adarshr.gradle.testlogger.TestLoggerExtension
 import com.adarshr.gradle.testlogger.theme.ThemeType
-import com.mvv.gradle.graalvm.fixUninitializedGraalVMNoJavaLaunchers
-import com.mvv.gradle.graalvm.getGraalJavaCompiler
-import com.mvv.gradle.graalvm.getGraalJavaLauncher
+import com.mvv.gradle.graalvm.SetMode
+import com.mvv.gradle.graalvm.graalvmNativeFix
 
-import com.mvv.gradle.util.isDebugging
-import com.mvv.gradle.util.isLaunchedByIdea
 import com.mvv.gradle.util.sysProp
 
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.jetbrains.kotlin.gradle.tasks.UsesKotlinJavaToolchain
-import org.springframework.boot.gradle.tasks.aot.ProcessTestAot
 import org.springframework.boot.gradle.tasks.run.BootRun
 import java.util.EnumSet
 
@@ -42,7 +37,8 @@ plugins {
 	id("org.springframework.boot") version "3.2.2"
 	id("io.spring.dependency-management") version "1.1.4"
 
-	id("org.graalvm.buildtools.native") version "0.10.0" // "0.9.28"
+	//id("org.graalvm.buildtools.native") version "0.10.0" // "0.9.28"
+	id("org.graalvm.buildtools.native")
 
 	id("com.adarshr.test-logger") version "4.0.0" apply false
 
@@ -50,6 +46,11 @@ plugins {
 	kotlin("jvm") version "1.9.22"
 	kotlin("plugin.spring") version "1.9.22"
 }
+
+//apply(plugin = "com.mvv.gradle.graalvm.native-image-plugin-fix")
+//apply(plugin = "graalvm.native-image-plugin-fix")
+//apply(plugin = "graalvm.native-image-plugin-fix")
+apply<com.mvv.gradle.graalvm.FixOfNativeImagePlugin>()
 
 group = "com.mvv"
 version = "0.0.1-SNAPSHOT"
@@ -135,7 +136,6 @@ java {
 
 }
 
-
 //tasks.withType<JavaCompile> {
 //	options.compilerArgs.addAll(arrayOf("--release", "12"))
 //}
@@ -151,16 +151,15 @@ springBoot {
 	mainClass = "com.mvv.demo2.Demo2ApplicationKt"
 }
 
-// At that moment probably exactly GraalVM javac compiler is not needed.
-val graalJavaCompiler = getGraalJavaCompiler(javaJdkVersion)
-//val graalJavaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(javaJdkVersion) }
-println("## graalJavaCompiler: ${graalJavaCompiler.get().executablePath}")
 
-// GraalVM launcher is needed for 'native-image' agent
-//   See error: libnative-image-agent.so: cannot open shared object file
-val graalJavaLauncher = getGraalJavaLauncher(javaJdkVersion)
-//val graalJavaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(javaJdkVersion) }
-println("## graalJavaLauncher: ${graalJavaLauncher.get().executablePath}")
+graalvmNativeFix {
+	useGraalVMToolchain = SetMode.AlwaysSet
+	jdkVersion = JavaLanguageVersion.of(javaTargetVersion)
+}
+//
+// or    extensions.configure<GraalVMExtensionFix> { jdkVersion = JavaLanguageVersion.of(javaTargetVersion) }
+// or    extensions.getByType<GraalVMExtensionFix>(GraalVMExtensionFix::class.java).jdkVersion = JavaLanguageVersion.of(javaTargetVersion)
+// or    the<GraalVMExtensionFix>().jdkVersion = JavaLanguageVersion.of(javaTargetVersion)
 
 graalvmNative {
 
@@ -199,9 +198,9 @@ graalvmNative {
 		// Workarounds for testing and/or for test debugging if you have error
 		//   JVMTI call failed with JVMTI_ERROR_NOT_AVAILABLE
 		//
-		//enabled = !isLaunchedByIdea()
+		//enabled = !isLaunchedByIDE()
 		//enabled = !hasTestRequest()
-		enabled = !isDebugging() // TODO: try to solve JVMTI_ERROR_NOT_AVAILABLE in other way (on debug)
+		//enabled = !isDebugging() // Now it is set in Fix plugin.
 
 		defaultMode = "standard" // Default agent mode if one isn't specified using `-Pagent=mode_name`
 		// Modes:
@@ -242,7 +241,7 @@ graalvmNative {
 			debug = true // Determines if debug info should be generated, defaults to false (alternatively add --debug-native to the CLI)
 
 			// Seems now it is not really used...
-			javaLauncher = graalJavaLauncher
+			// javaLauncher = graalJavaLauncher
 		}
 
 		named("main") {
@@ -263,7 +262,7 @@ graalvmNative {
 			// fallback = false   // Sets the fallback mode of native-image, defaults to false
 
 			// Seems now it is not really used...
-			javaLauncher = graalJavaLauncher
+			// javaLauncher = graalJavaLauncher
 
 			// toolchainDetection = false
 			// javaLauncher = javaToolchains.launcherFor {
@@ -343,19 +342,6 @@ graalvmNative {
 
 }
 
-// It includes also "processAot", "processTestAot", "BootRun"
-tasks.withType<JavaExec>().configureEach {
-	javaLauncher = graalJavaLauncher
-}
-
-tasks.named<ProcessTestAot>("processTestAot") {
-	fixUninitializedGraalVMNoJavaLaunchers(graalJavaLauncher)
-	// need to do some fixes a bit later due to later registered GraalVM actions
-	doLast { fixUninitializedGraalVMNoJavaLaunchers(graalJavaLauncher) }
-
-	onlyIf { !isLaunchedByIdea() }
-}
-
 
 // Tasks:
 //   init
@@ -368,20 +354,6 @@ tasks.named<ProcessTestAot>("processTestAot") {
 // Test & Run tasks:
 //   bootRun, bootTestRun, test, nativeTest
 
-// Seems setting graalJavaCompiler/graalJavaLauncher for kotlin/java compiler is optional.
-
-tasks.withType<JavaCompile>().configureEach {
-	javaCompiler = graalJavaCompiler
-}
-
-// See https://kotlinlang.org/docs/gradle-configure-project.html#associate-compiler-tasks
-tasks.withType<UsesKotlinJavaToolchain>().configureEach {
-	kotlinJavaToolchain.toolchain.use(graalJavaLauncher)
-	//kotlinJavaToolchain.jdk.use(
-	//    graalJavaLauncher.get().metadata.installationPath.asFile, // Put a path to your JDK
-	//    JavaVersion.toVersion(javaJdkVersion), // For example, JavaVersion.17
-	//)
-}
 
 tasks.withType<KotlinCompile> {
 
@@ -419,7 +391,7 @@ if (useAdarshrTestLoggerPlugin) apply(plugin = "com.adarshr.test-logger")
 
 tasks.withType<Test> {
 
-	javaLauncher = graalJavaLauncher
+	//javaLauncher = graalJavaLauncher
 
 	// To avoid caching (and using --rerun) (one of):
 	//  systemProperty "random.testing.seed", new Random().nextInt()

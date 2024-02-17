@@ -4,9 +4,9 @@ import org.gradle.api.Project
 import org.gradle.api.invocation.Gradle
 
 
-fun Project.isLaunchedByIdea(): Boolean = this.gradle.isLaunchedByIdea()
+fun Project.isLaunchedByIDE(): Boolean = this.gradle.isLaunchedByIDE()
 
-fun Gradle.isLaunchedByIdea(): Boolean {
+fun Gradle.isLaunchedByIDE(): Boolean {
     val isLaunchedByIdea = sysProp("idea.active") == "true"
             && isSysPropNotBlank("idea.version")
     return isLaunchedByIdea
@@ -19,11 +19,10 @@ fun Gradle.hasTestRequest(): Boolean {
     val gradle: org.gradle.api.invocation.Gradle = this
 
     val taskNamesOnly = gradle.startParameter.taskRequests.mapNotNull { if (it.args.isEmpty()) null else it.args[0] }
-    // Add there your integration task names if you need it.
+    // Add there your non-trivial integration task names if you need it.
 
-    val hasTestTask = taskNamesOnly.containsOneOf(":test", "test")
-    // or if you want more complicated matching
-    //val hasTestTask = taskNamesOnly.find { it == ":test" || it == "test" } != null
+    val hasTestTask = taskNamesOnly.containsOneOf(":test", "test") ||
+            taskNamesOnly.containsOneOf(":test", "Test")
     return hasTestTask
 }
 

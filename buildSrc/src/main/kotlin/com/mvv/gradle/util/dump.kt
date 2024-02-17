@@ -44,7 +44,7 @@ fun Gradle.dumpSystem() {
         .joinToString("\n") { "  ${it.key} = ${it.value}" }
     println("System props: \n$sysPropsAsText")
 
-    println("\nIs launched by Idea : ${isLaunchedByIdea()}")
+    println("\nIs launched by IDE : ${isLaunchedByIDE()}")
 
     println("\n---------------------------- Current process ----------------------------\n\n")
     val currentProcess = ProcessHandle.current()

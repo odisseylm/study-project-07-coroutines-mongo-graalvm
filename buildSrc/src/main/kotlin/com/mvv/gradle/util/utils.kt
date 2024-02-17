@@ -4,7 +4,14 @@ package com.mvv.gradle.util
 fun CharSequence?.isNotBlank(): Boolean = !this.isNullOrBlank()
 fun sysProp(key: String): String? = System.getProperty(key)
 fun isSysPropNotBlank(key: String): Boolean = sysProp(key).isNotBlank()
-fun <T> Collection<T>.containsOneOf(vararg values: T): Boolean = values.any { it in this }
+
+fun <T> Iterable<T>.containsOneOf(vararg values: T): Boolean = values.any { it in this }
+fun Iterable<CharSequence>.endsWithOneOf(vararg suffixes: CharSequence): Boolean {
+    for (s in this)
+        for (suffix in suffixes)
+            if (s.endsWith(suffix)) return true
+    return false
+}
 
 
 fun <T> Any.getField(fieldName: String): T {

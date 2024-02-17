@@ -7,6 +7,9 @@ import org.gradle.api.provider.Provider
 import org.gradle.internal.jvm.inspection.JavaInstallationRegistry
 import org.gradle.jvm.toolchain.*
 import org.gradle.jvm.toolchain.internal.*
+import org.gradle.platform.Architecture
+import org.gradle.platform.BuildPlatform
+import org.gradle.platform.OperatingSystem
 import java.io.File
 import java.util.NoSuchElementException
 import java.util.concurrent.ConcurrentMap
@@ -101,6 +104,8 @@ fun Project.getGraalJavaCompiler(requiredJdkJavaVersion: Int): Provider<JavaComp
     // We need to cache it, otherwise it will be recalculated again and returns non-graal jvm.
     val javaLauncher = try {
         javaCompilerProvider.get() // it can throw exception
+    } catch (ex: NoToolchainAvailableException) {
+        throw createNoGraalVMToolchainAvailableException(requiredJdkJavaVersion, ex)
     } finally {
         // restore original behavior
         javaToolchains.restoreToolchain(removed)
@@ -183,3 +188,23 @@ private fun JavaToolchainService.restoreToolchain(installations: List<Installati
     locations.addAll(installations)
 }
 
+
+private fun Project.createNoGraalVMToolchainAvailableException(requiredJdkJavaVersion: Int, cause: Throwable): NoToolchainAvailableException {
+
+    val project = this
+
+    val buildPlatform =  object : BuildPlatform {
+        override fun getOperatingSystem(): OperatingSystem = OperatingSystem.LINUX
+        override fun getArchitecture(): Architecture = Architecture.X86_64
+    }
+
+    val spec = DefaultToolchainSpec(project.objects).also {
+        it.languageVersion.set(JavaLanguageVersion.of(requiredJdkJavaVersion))
+        it.vendor.set(JvmVendorSpec.GRAAL_VM)
+    }
+
+    return NoToolchainAvailableException(
+        spec, buildPlatform,
+        ToolchainDownloadFailedException("No GraalVM jdk-$requiredJdkJavaVersion").also { it.initCause(cause) }
+    )
+}

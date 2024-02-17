@@ -3,13 +3,14 @@ package com.mvv.gradle.graalvm
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.jvm.toolchain.JavaLauncher
 
 
-fun Project.fixUninitializedGraalVMNoJavaLaunchers(graalVmJdkVersion: Int) {
-    val project: Project = this
+fun Project.fixUninitializedGraalVMNoJavaLaunchers(graalVmJdkVersion: Int) =
+    fixUninitializedGraalVMNoJavaLaunchers(getGraalJavaLauncher(graalVmJdkVersion))
 
-    val javaLauncherProvider = project.getGraalJavaLauncher(graalVmJdkVersion)
+fun Project.fixUninitializedGraalVMNoJavaLaunchers(javaLauncherProvider: Provider<JavaLauncher>) {
     val javaLauncher = javaLauncherProvider.get()
 
     println("## JavaLauncher ${javaLauncher.executablePath}")

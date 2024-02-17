@@ -11,7 +11,6 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.UsesKotlinJavaToolchain
-import org.springframework.boot.gradle.tasks.aot.ProcessAot
 import org.springframework.boot.gradle.tasks.aot.ProcessTestAot
 import org.springframework.boot.gradle.tasks.run.BootRun
 import java.util.EnumSet
@@ -117,8 +116,7 @@ val javaTargetVersion = 17
 val javaSourceCompatibilityVersion = javaTargetVersion
 
 java {
-	//sourceCompatibility = JavaVersion.VERSION_17
-	sourceCompatibility = JavaVersion.toVersion(javaSourceCompatibilityVersion)
+	sourceCompatibility = JavaVersion.toVersion(javaSourceCompatibilityVersion) // JavaVersion.VERSION_17
 
 	// toolchain {
 	//	languageVersion = JavaLanguageVersion.of(21)
@@ -144,10 +142,15 @@ springBoot {
 	mainClass = "com.mvv.demo2.Demo2ApplicationKt"
 }
 
+// At that moment probably exactly GraalVM javac compiler is not needed.
 val graalJavaCompiler = getGraalJavaCompiler(javaJdkVersion)
+//val graalJavaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(javaJdkVersion) }
 println("## graalJavaCompiler: ${graalJavaCompiler.get().executablePath}")
 
+// GraalVM launcher is needed for 'native-image' agent
+//   See error: libnative-image-agent.so: cannot open shared object file
 val graalJavaLauncher = getGraalJavaLauncher(javaJdkVersion)
+//val graalJavaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(javaJdkVersion) }
 println("## graalJavaLauncher: ${graalJavaLauncher.get().executablePath}")
 
 graalvmNative {
@@ -189,7 +192,7 @@ graalvmNative {
 		//
 		//enabled = !isLaunchedByIdea()
 		//enabled = !hasTestRequest()
-		enabled = !isDebugging() // TODO: try to solve JVMTI_ERROR_NOT_AVAILABLE in other way
+		enabled = !isDebugging() // TODO: try to solve JVMTI_ERROR_NOT_AVAILABLE in other way (on debug)
 
 		defaultMode = "standard" // Default agent mode if one isn't specified using `-Pagent=mode_name`
 		// Modes:
@@ -256,8 +259,7 @@ graalvmNative {
 			// toolchainDetection = false
 			// javaLauncher = javaToolchains.launcherFor {
 			//	languageVersion = JavaLanguageVersion.of(21)
-			//	//vendor = JvmVendorSpec.matching("GraalVM Community")
-			//	vendor = JvmVendorSpec.matching("Oracle Corporation")
+			//	vendor = JvmVendorSpec.matching("GraalVM Community") // Now gradle does not support search by GraalVM vendor.
 			// }
 			//
 			// requiredVersion = "22.3" // The minimal GraalVM version, can be `MAJOR`, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`
@@ -332,17 +334,15 @@ graalvmNative {
 
 }
 
-tasks.named<ProcessAot>("processAot") {
+// It includes also "processAot", "processTestAot"
+tasks.withType<JavaExec>().configureEach {
 	javaLauncher = graalJavaLauncher
-	//fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion)
 }
 
 tasks.named<ProcessTestAot>("processTestAot") {
-	javaLauncher = graalJavaLauncher
-
-	fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion)
+	fixUninitializedGraalVMNoJavaLaunchers(graalJavaLauncher)
 	// need to do some fixes a bit later due to later registered GraalVM actions
-	doLast { fixUninitializedGraalVMNoJavaLaunchers(javaJdkVersion) }
+	doLast { fixUninitializedGraalVMNoJavaLaunchers(graalJavaLauncher) }
 
 	onlyIf { !isLaunchedByIdea() }
 }
@@ -394,12 +394,11 @@ tasks.withType<KotlinCompile> {
 		//allWarningsAsErrors = true
 
 		freeCompilerArgs += "-Xjsr305=strict"
-		jvmTarget = "17"
+		jvmTarget = javaTargetVersion.toString()
 	}
 }
 
 tasks.withType<BootRun> {
-	javaLauncher = graalJavaLauncher
 	jvmArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:32323")
 }
 

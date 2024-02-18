@@ -162,6 +162,9 @@ graalvmNativeFix {
 // or    extensions.getByType<GraalVMExtensionFix>(GraalVMExtensionFix::class.java).jdkVersion = JavaLanguageVersion.of(javaTargetVersion)
 // or    the<GraalVMExtensionFix>().jdkVersion = JavaLanguageVersion.of(javaTargetVersion)
 
+// We need it because native agent generates configs needed for native-compile.
+tasks.getByName("nativeCompile").dependsOn(tasks.getByName("test"))
+
 graalvmNative {
 
 	// There are cases where you might want to disable native testing support

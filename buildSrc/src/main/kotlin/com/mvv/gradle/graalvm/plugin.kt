@@ -52,7 +52,7 @@ interface GraalVMExtensionFix {
     val disableAgent: SetProperty<DisableCondition>
 }
 
-fun org.gradle.api.Project.graalvmNativeFix(configure: Action<GraalVMExtensionFix>): Unit =
+fun Project.graalvmNativeFix(configure: Action<GraalVMExtensionFix>): Unit =
     (this as org.gradle.api.plugins.ExtensionAware).extensions.configure("graalvmNativeFix", configure)
 
 
@@ -78,7 +78,7 @@ class FixOfNativeImagePlugin : Plugin<Project> {
         }
     }
 
-    fun fixGraalVMConfiguration() { with(project) {
+    private fun fixGraalVMConfiguration() { with(project) {
 
         val jdkVersion: Provider<JavaLanguageVersion> by lazy { ext.jdkVersion }
         val useGraalVMToolchain: Provider<SetMode> by lazy { ext.useGraalVMToolchain.orElse(SetMode.None) }
@@ -123,14 +123,21 @@ class FixOfNativeImagePlugin : Plugin<Project> {
             toDisable(ext.disableAgent.orElse(setOf(DisableCondition.OnDebug)).get())
         }
 
-        tasks.named<Task>("processTestAot") {
-            // I do not know how to distingush there SetMode.Init and SetMode.AlwaysSet.
+        fun Task.fixUninitializedGraalVMNoJavaLaunchersInTask() {
+            // I do not know how to distinguish there SetMode.Init and SetMode.AlwaysSet.
             if (useGraalVMToolchain.get().toSet) {
                 fixUninitializedGraalVMNoJavaLaunchers(graalJavaLauncher)
                 // need to do some fixes a bit later due to later registered GraalVM actions
                 doLast { fixUninitializedGraalVMNoJavaLaunchers(graalJavaLauncher) }
             }
+        }
 
+        tasks.named<Task>("processAot") {
+            fixUninitializedGraalVMNoJavaLaunchersInTask()
+            // onlyIf { !toDisableProcessAot }
+        }
+        tasks.named<Task>("processTestAot") {
+            fixUninitializedGraalVMNoJavaLaunchersInTask()
             onlyIf { !toDisableProcessTestAot }
         }
 
@@ -169,28 +176,20 @@ fun Project.toDisable(disableCondition: Iterable<DisableCondition>): Boolean =
     disableCondition.any { toDisable(it) }
 
 
-public abstract class DefaultGraalVMExtensionFix
-    @Inject constructor (private val project: Project) : GraalVMExtensionFix {
+abstract class DefaultGraalVMExtensionFix
+    @Inject constructor (project: Project) : GraalVMExtensionFix {
 
-    override val useGraalVMToolchain = project.objects.property(SetMode::class.java)
-    override val jdkVersion = project.objects.property(JavaLanguageVersion::class.java)
-    override val disableProcessAot = project.objects.setProperty(DisableCondition::class.java)
-    override val disableAgent = project.objects.setProperty(DisableCondition::class.java)
+    override val useGraalVMToolchain: Property<SetMode> = project.objects.property(SetMode::class.java)
+    override val jdkVersion: Property<JavaLanguageVersion> = project.objects.property(JavaLanguageVersion::class.java)
+    override val disableProcessAot: SetProperty<DisableCondition> = project.objects.setProperty(DisableCondition::class.java)
+    override val disableAgent: SetProperty<DisableCondition> = project.objects.setProperty(DisableCondition::class.java)
 }
 
-fun org.gradle.api.Project.graalvmNative(configure: Action<GraalVMExtension>): Unit =
+fun Project.graalvmNative(configure: Action<GraalVMExtension>): Unit =
     (this as org.gradle.api.plugins.ExtensionAware).extensions.configure("graalvmNative", configure)
 
 
-private fun <T> Property<T>.setEx(setMode: SetMode, value: T): Unit {
-    when (setMode) {
-        SetMode.None -> { }
-        SetMode.Init -> if (!this.isPresent) this.set(value)
-        SetMode.AlwaysSet -> this.set(value)
-    }
-}
-
-private fun <T> Property<T>.setEx(setMode: Provider<SetMode>, value: Provider<T>): Unit {
+private fun <T> Property<T>.setEx(setMode: Provider<SetMode>, value: Provider<T>) {
     when (setMode.get()) {
         SetMode.None -> { }
         SetMode.Init -> if (!this.isPresent) this.set(value)

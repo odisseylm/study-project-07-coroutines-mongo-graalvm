@@ -113,7 +113,8 @@ dependencyManagement {
 //dumpSystem()
 //
 println("## Props from gradle.local.properties")
-println("## local.prop1: ${property("local.prop1")}")
+//println("## local.prop1: ${property("local.prop1")}")
+println("## org.gradle.java.home: ${project.ext.properties.getOrDefault("local.prop1", "")}")
 println("## system java.home: ${sysProp("java.home")}")
 //println("## org.gradle.java.home: ${property("org.gradle.java.home")}")
 //println("## org.gradle.java.installations.paths: ${property("org.gradle.java.installations.paths")}")
@@ -154,7 +155,7 @@ springBoot {
 
 graalvmNativeFix {
 	useGraalVMToolchain = SetMode.AlwaysSet
-	jdkVersion = JavaLanguageVersion.of(javaTargetVersion)
+	jdkVersion = JavaLanguageVersion.of(javaJdkVersion)
 }
 //
 // or    extensions.configure<GraalVMExtensionFix> { jdkVersion = JavaLanguageVersion.of(javaTargetVersion) }

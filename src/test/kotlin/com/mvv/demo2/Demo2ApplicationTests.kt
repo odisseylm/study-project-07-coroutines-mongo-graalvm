@@ -60,12 +60,6 @@ internal class Demo2ApplicationTests {
 	}
 
 	@Test
-	fun test_forGraalVM() {
-		println("## Demo2ApplicationTests.test_forGraalVM()")
-		forGraalVM()
-	}
-
-	@Test
 	fun someOtherTest2() {
 		println("## Demo2ApplicationTests.someOtherTest2()")
 	}

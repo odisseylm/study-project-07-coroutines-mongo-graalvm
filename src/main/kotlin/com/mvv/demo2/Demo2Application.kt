@@ -17,7 +17,6 @@ class Demo2Application {
 
 		log.info("### JAVA_HOME: $javaHome")
 		log.info("### App is run as \n  $cmd")
-	    forGraalVM()
 	}
 }
 

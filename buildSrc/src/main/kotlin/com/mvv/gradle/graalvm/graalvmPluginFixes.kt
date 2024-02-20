@@ -54,6 +54,7 @@ fun Project.fixUninitializedGraalVMNoJavaLaunchers(javaLauncherProvider: Provide
         }
     }
 
-    println("## fixedTasks $fixedTaskNames")
+    if (fixedTaskNames.isNotEmpty())
+        println("## fixedTasks $fixedTaskNames")
 }
 

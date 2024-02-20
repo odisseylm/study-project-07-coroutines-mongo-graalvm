@@ -4,7 +4,6 @@ import com.mongodb.client.FindIterable
 import com.mongodb.client.MongoCollection
 import com.mongodb.reactivestreams.client.MongoCollection as RMongoCollection
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flow
 import org.bson.Document
 import org.springframework.data.mongodb.core.MongoOperations
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -15,6 +14,13 @@ import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
+import com.mongodb.kotlin.client.coroutine.MongoClient as CorMongoClient
+import kotlinx.coroutines.flow.Flow as CorFlow
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
+import org.springframework.web.bind.annotation.RequestMapping
+
 
 data class Customer (
     val name: String,
@@ -24,12 +30,20 @@ data class Banner (
     val aa: String,
 )
 
+@RestController()
+class WelcomeController {
+    @GetMapping("/")
+    fun getCustomers(): String = "Welcome!"
+}
+
 
 @RestController()
-//@PathVariable("")
-/*open*/ class MyController(
+@RequestMapping("users")
+class MyController(
     private val mongoOperations: MongoOperations,
     private val rMongoOperations: ReactiveMongoOperations,
+    //private val crMongoOperations: CorMongoOperations,
+    private val crMongoClient: CorMongoClient,
 ) {
 
     @GetMapping("/customers")
@@ -95,52 +109,28 @@ data class Banner (
             .flatMapMany { it.find() }
             .doOnNext { doc -> println("## user $doc ( ${doc["name"]} )") }
             .map { userDoc -> Customer(userDoc.getString("name")) }
-            .map { it }
 
         return userEntities
     }
 
     @GetMapping("/test-coroutine")
-    suspend fun testCoroutine(): List<Customer> {
-        //val users: Mono<RMongoCollection<Document>> = rMongoOperations.getCollection("users")
-        TODO()
-    }
+    suspend fun testCoroutine(): CorFlow<Customer> {
 
-    //@GetMapping("/test-temp2")
-    //fun getCustomers3(): String {
-    //
-    //    val cls = loadClass1("org.springframework.data.domain.Unpaged")
-    //    val instance = cls.getDeclaredConstructor(Sort::class.java)
-    //        .also { it.trySetAccessible() }
-    //        .newInstance(Sort.by("prop1"))
-    //    requireNotNull(instance)
-    //
-    //    return "OK"
-    //}
+        val database = crMongoClient.getDatabase("db1")
 
-    @GetMapping("/customers2-suspended")
-    /*suspend*/ /*open*/ fun getCustomers2_suspended(): List<Customer> {
+        val users = database.getCollection<Document>("users")
 
-        val users: MongoCollection<Document> = mongoOperations.getCollection("users")
-        println("users collection ref is taken.")
+        val res: CorFlow<Customer> = users.find()
+            .onEach { doc -> println("## user $doc ( ${doc["name"]} )") }
+            .map { userDoc -> Customer(userDoc.getString("name")) }
 
-        //val userCount: Long = users.countDocuments()
-        //println("user count $userCount")
-
-        val allUsersIt1: FindIterable<Document> = users.find()
-        val allUsers: List<Document> = allUsersIt1.asIterable().toList()
-        println(allUsers)
-        //allUsers.map { it.to }
-
-        //...
-        //TODO()
-        return listOf(Customer("customer1"))
+        return res
     }
 
     @GetMapping("/suspend")
     suspend fun suspendingEndpoint(): Banner {
         delay(10)
-        return Banner("fuck")
+        return Banner("banner0")
     }
 
     @GetMapping("/flow")
@@ -152,4 +142,3 @@ data class Banner (
         emit(banner)
     }
 }
-

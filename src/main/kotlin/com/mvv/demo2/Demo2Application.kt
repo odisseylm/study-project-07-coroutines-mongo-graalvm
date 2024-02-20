@@ -1,9 +1,20 @@
 package com.mvv.demo2
 
+import com.mongodb.ConnectionString
+import com.mongodb.MongoClientSettings
+import com.mongodb.MongoCredential
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass
+import org.springframework.boot.autoconfigure.mongo.MongoConnectionDetails
+import org.springframework.boot.autoconfigure.mongo.MongoProperties
 import org.springframework.boot.runApplication
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+
+import com.mongodb.kotlin.client.coroutine.MongoClient as CorMongoClient
 
 
 @SpringBootApplication
@@ -28,6 +39,73 @@ fun main(args: Array<String>) {
 	// System.setProperty("spring.docker.compose.enabled", "false")
 	runApplication<Demo2Application>(*args)
 }
+
+
+@Configuration
+class CoroutineMongoDbConfig {
+
+	// Mainly for tests... but probably it can be in prod too (with another conditions)...
+	@Bean
+	@ConditionalOnClass(name = ["org.testcontainers.containers.MongoDBContainer"])
+	fun altCoroutineMongoClient(md: MongoConnectionDetails): CorMongoClient {
+		println("## MongoConnectionDetails connection: ${md.connectionString}")
+		println("## creating alt CorMongoClient")
+		return CorMongoClient.create(md.connectionString)
+	}
+
+	@Bean
+	@ConditionalOnMissingClass(value = ["org.testcontainers.containers.MongoDBContainer"])
+	fun baseCoroutineMongoClient(mongoProperties: MongoProperties): CorMongoClient =
+		with (mongoProperties) {
+			println("## creating prod CorMongoClient")
+
+			val authSource = if (authenticationDatabase != null) authenticationDatabase else database
+
+			println("## base coroutineMongoClient => ${host}:$port  $username/*** authSource=$authSource")
+
+			CorMongoClient.create(
+				MongoClientSettings.builder()
+					//.applicationName("demo2")
+					.applyConnectionString(ConnectionString("mongodb://$host:$port"))
+					.credential(
+						MongoCredential.createCredential(
+							username,
+							authSource,
+							password
+						)
+					)
+					.build()
+			)
+		}
+}
+
+/*
+@Configuration
+class CoroutineMongoDbConfig (
+	@Value("\${spring.data.mongodb.host}")
+	private val mongodbHost: String,
+	@Value("\${spring.data.mongodb.port}")
+	private val mongodbPort: Int,
+	@Value("\${spring.data.mongodb.database}")
+	private val mongodbDatabase: String,
+	@Value("\${spring.data.mongodb.username}")
+	private val mongodbUsername: String,
+	@Value("\${spring.data.mongodb.password}")
+	private val mongodbPassword: String,
+	@Value("\${spring.data.mongodb.authSource}")
+	private val mongodbAuthSource: String,
+	) {
+
+	@Bean
+	fun coroutineMongoClient(): CrMongoClient =
+		CrMongoClient.create(
+			MongoClientSettings.builder()
+			//.applicationName("demo2")
+			.applyConnectionString(ConnectionString("mongodb://$mongodbHost:$mongodbPort"))
+			.credential(MongoCredential.createCredential(mongodbUsername, mongodbAuthSource, mongodbPassword.toCharArray()))
+			.build())
+}
+*/
 
 /*
 @Configuration

@@ -61,6 +61,11 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-mongodb:$springBootVer")
 	implementation("org.springframework.boot:spring-boot-starter-data-mongodb-reactive:$springBootVer")
 
+	implementation("org.mongodb:mongodb-driver-kotlin-coroutine:4.11.0")
+	implementation("org.mongodb:bson-kotlinx:4.11.0")
+	// OR
+	//implementation("org.mongodb:bson-kotlin:4.11.0")
+
 	implementation("org.springframework.boot:spring-boot-starter-security:$springBootVer")
 	implementation("org.springframework.boot:spring-boot-starter-web:$springBootVer")
 	implementation("org.springframework.boot:spring-boot-starter-webflux:$springBootVer")

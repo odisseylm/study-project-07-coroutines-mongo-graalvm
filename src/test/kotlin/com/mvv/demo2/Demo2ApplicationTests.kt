@@ -2,7 +2,10 @@ package com.mvv.demo2
 
 import com.mvv.demo2.app.TestDemo2Application
 import com.mvv.tests.*
+import org.junit.jupiter.api.MethodOrderer
+import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestMethodOrder
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.TestPropertySource
@@ -16,6 +19,7 @@ import org.springframework.test.context.TestPropertySource
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 	useMainMethod = SpringBootTest.UseMainMethod.ALWAYS,
 )
+@TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 //@ActiveProfiles("test")
 @TestPropertySource(locations = ["classpath:application.properties", "classpath:application-test.properties"])
 internal class Demo2ApplicationTests {
@@ -27,11 +31,26 @@ internal class Demo2ApplicationTests {
 	private var port: Int = -1
 
 	@Test
-	fun contextLoads() {
+	@Order(Int.MIN_VALUE)
+	fun contextLoads() = useAssertJSoftAssertions("contextLoads") {
+		val username = "test"
+		val password = "test"
+		val credentials = Credentials(username, password)
+		val resp = httpGetString("http://localhost:$port/", credentials)
+
+		assertThat(resp.status).isEqualTo(200)
+		assertThat(resp.content).containsIgnoringCase("welcome")
+	}
+
+	@Test
+	fun testSync0() = testSync()
+
+	@Test
+	fun testSync() = useAssertJSoftAssertions("testSync") {
 		//val port = servletAppContext.webServer.port
 		println("port: $port")
 
-		val url = "http://localhost:$port/test"
+		val url = "http://localhost:$port/users/test"
 		val username = "test"
 		val password = "test"
 		val credentials = Credentials(username, password)
@@ -48,15 +67,41 @@ internal class Demo2ApplicationTests {
 		println("2) result status: ${resp2.status}")
 		println("2) result body: ${resp2.content}")
 
-		//SoftAssertions().runTests {
-		useAssertJSoftAssertions {
+		assertThat(resp1.status).isEqualTo(200)
+		assertThat(resp1.content).contains("all our users count 2")
 
-			assertThat(resp1.status).isEqualTo(200)
-			assertThat(resp1.content).contains("all our users count 2")
+		assertThat(resp2.status).isEqualTo(200)
+		assertThat(resp2.content).contains("all our users count 2")
+	}
 
-			assertThat(resp2.status).isEqualTo(200)
-			assertThat(resp2.content).contains("all our users count 2")
-		}
+	@Test
+	fun testRx() = useAssertJSoftAssertions("testRx") {
+		val url = "http://localhost:$port/users/test-rx"
+		val username = "test"
+		val password = "test"
+		val credentials = Credentials(username, password)
+
+		val resp = httpGetString(url, credentials)
+		println("result status: ${resp.status}")
+		println("result body: ${resp.content}")
+
+		assertThat(resp.status).isEqualTo(200)
+		assertThat(resp.content).contains("""[{"name":"user1"},{"name":"user2"}]""")
+	}
+
+	@Test
+	fun testCoroutine() = useAssertJSoftAssertions("testCoroutine") {
+		val username = "test"
+		val password = "test"
+		val credentials = Credentials(username, password)
+
+		val resp = httpGetString("http://localhost:$port/users/test-coroutine", credentials)
+		println("result status: ${resp.status}")
+		println("result body: ${resp.content}")
+
+
+		assertThat(resp.status).isEqualTo(200)
+		assertThat(resp.content).contains("""[{"name":"user1"},{"name":"user2"}]""")
 	}
 
 	@Test

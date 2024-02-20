@@ -18,6 +18,21 @@ fun useAssertJSoftAssertions(block: SoftAssertions.() -> Unit) {
     a.assertAll()
 }
 
+fun useAssertJSoftAssertions(testOrBlockName: CharSequence, block: SoftAssertions.() -> Unit) {
+    val started = System.currentTimeMillis()
+    try {
+        println("## test [$testOrBlockName] started")
+        val a = SoftAssertions()
+        a.block()
+        println("## test [$testOrBlockName] body completed (took ${System.currentTimeMillis() - started}ms)")
+        a.assertAll()
+        println("## test [$testOrBlockName] passed (took ${System.currentTimeMillis() - started}ms)")
+    }
+    finally {
+        println("## test [$testOrBlockName] completed (took ${System.currentTimeMillis() - started}ms)")
+    }
+}
+
 
 class TestUtilsTest {
 

@@ -19,6 +19,7 @@ import org.testcontainers.containers.wait.strategy.WaitStrategyTarget
 import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+//import com.mongodb.kotlin.client.coroutine.MongoClient as CorMongoClient
 
 
 @TestConfiguration(proxyBeanMethods = false)
@@ -45,11 +46,23 @@ class TestDemo2Application {
 		}
 	}
 
+	//@Bean
+	//@Primary
+	//fun testcontainersCoroutineMongoClient(md: MongoConnectionDetails): CorMongoClient {
+	//	println("## MongoConnectionDetails connection: ${md.connectionString}")
+	//	println("## creating testing CorMongoClient")
+	//	return CorMongoClient.create(md.connectionString)
+	//}
+	//
+	//class Temp234 {
+	//}
+
+
 	@Bean
 	@ServiceConnection
 	fun mongoDbContainer(): MongoDBContainer {
 
-		val mongoMode = MongoDBStartMode.Standard
+		val mongoMode = MongoDBStartMode.ReplicaSet // Standard
 		val connectionSettings = MongoDBConnectSettings(
 			user = "db1user",
 			psw = "db1psw",
@@ -167,6 +180,11 @@ class TestDemo2Application {
 		  lastInvocation = 0
 		*/
 	}
+
+	//@DynamicPropertySource
+	//fun mongoDbProperties(registry: DynamicPropertyRegistry) {
+	//	registry.add("spring.data.mongodb.uri", mongoDbContainer)
+	//}
 
 	companion object {
 		@JvmStatic

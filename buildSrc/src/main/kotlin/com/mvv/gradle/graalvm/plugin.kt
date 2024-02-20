@@ -1,5 +1,6 @@
 package com.mvv.gradle.graalvm
 
+import com.mvv.gradle.util.dumpSystem
 import com.mvv.gradle.util.hasTestRequest
 import com.mvv.gradle.util.isDebugging
 import com.mvv.gradle.util.isLaunchedByIDE
@@ -115,12 +116,15 @@ class FixOfNativeImagePlugin : Plugin<Project> {
         }
 
         val toDisableProcessTestAot: Boolean by lazy {
-            toDisable(ext.disableProcessAot.orElse(setOf(DisableCondition.UnderIDE)).get())
+            // TODO: orElse does not work there!!! Investigate convention vs orElse!
+            //toDisable(ext.disableProcessAot.orElse(setOf(DisableCondition.UnderIDE)).get())
+            toDisable(ext.disableProcessAot.convention(setOf(DisableCondition.UnderIDE)).get())
         }
         val toDisableAgent: Boolean by lazy {
             // Workaround for testing and/or for test debugging if you have error
             //   JVMTI call failed with JVMTI_ERROR_NOT_AVAILABLE
-            toDisable(ext.disableAgent.orElse(setOf(DisableCondition.OnDebug)).get())
+            //toDisable(ext.disableAgent.orElse(setOf(DisableCondition.OnDebug)).get())
+            toDisable(ext.disableAgent.convention(setOf(DisableCondition.OnDebug)).get())
         }
 
         fun Task.fixUninitializedGraalVMNoJavaLaunchersInTask() {
@@ -139,6 +143,13 @@ class FixOfNativeImagePlugin : Plugin<Project> {
         tasks.named<Task>("processTestAot") {
             fixUninitializedGraalVMNoJavaLaunchersInTask()
             onlyIf { !toDisableProcessTestAot }
+
+            onlyIf {
+                println("## toDisableProcessTestAot: $toDisableProcessTestAot")
+                println("## ext.disableProcessAot: ${ext.disableProcessAot.orElse(emptySet()).get()}")
+                if (!toDisableProcessTestAot) dumpSystem()
+                true
+            }
         }
 
         tasks.withType<Test> {

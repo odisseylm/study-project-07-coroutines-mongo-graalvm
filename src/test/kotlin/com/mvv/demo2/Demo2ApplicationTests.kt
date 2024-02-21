@@ -30,12 +30,13 @@ internal class Demo2ApplicationTests {
 	@LocalServerPort
 	private var port: Int = -1
 
+	private val username = "test"
+	private val password = "test"
+	private val credentials = Credentials(username, password)
+
 	@Test
 	@Order(Int.MIN_VALUE)
 	fun contextLoads() = useAssertJSoftAssertions("contextLoads") {
-		val username = "test"
-		val password = "test"
-		val credentials = Credentials(username, password)
 		val resp = httpGetString("http://localhost:$port/", credentials)
 
 		assertThat(resp.status).isEqualTo(200)
@@ -51,9 +52,6 @@ internal class Demo2ApplicationTests {
 		println("port: $port")
 
 		val url = "http://localhost:$port/users/test"
-		val username = "test"
-		val password = "test"
-		val credentials = Credentials(username, password)
 
 		//val resp0 = httpGetString("http://localhost:$port/test-temp2", credentials)
 		//assertThat(resp0.status).isEqualTo(200)
@@ -76,12 +74,7 @@ internal class Demo2ApplicationTests {
 
 	@Test
 	fun testRx() = useAssertJSoftAssertions("testRx") {
-		val url = "http://localhost:$port/users/test-rx"
-		val username = "test"
-		val password = "test"
-		val credentials = Credentials(username, password)
-
-		val resp = httpGetString(url, credentials)
+		val resp = httpGetString("http://localhost:$port/users/test-rx", credentials)
 		println("result status: ${resp.status}")
 		println("result body: ${resp.content}")
 
@@ -90,18 +83,53 @@ internal class Demo2ApplicationTests {
 	}
 
 	@Test
-	fun testCoroutine() = useAssertJSoftAssertions("testCoroutine") {
-		val username = "test"
-		val password = "test"
-		val credentials = Credentials(username, password)
+	fun testRx2() = useAssertJSoftAssertions("testRx") {
+		val resp = httpGetString("http://localhost:$port/users/test-rx2", credentials)
+		println("result status: ${resp.status}")
+		println("result body: ${resp.content}")
 
+		assertThat(resp.status).isEqualTo(200)
+		assertThat(resp.content).contains("""[{"name":"user1"}]""")
+	}
+
+	@Test
+	fun testCoroutine() = useAssertJSoftAssertions("testCoroutine") {
 		val resp = httpGetString("http://localhost:$port/users/test-coroutine", credentials)
 		println("result status: ${resp.status}")
 		println("result body: ${resp.content}")
 
-
 		assertThat(resp.status).isEqualTo(200)
 		assertThat(resp.content).contains("""[{"name":"user1"},{"name":"user2"}]""")
+	}
+
+	@Test
+	fun testCoroutine2() = useAssertJSoftAssertions("testCoroutine") {
+		val resp = httpGetString("http://localhost:$port/users/test-coroutine2", credentials)
+		println("result status: ${resp.status}")
+		println("result body: ${resp.content}")
+
+		assertThat(resp.status).isEqualTo(200)
+		assertThat(resp.content).contains("""[{"name":"user2"}]""")
+	}
+
+	@Test
+	fun testCoroutine3() = useAssertJSoftAssertions("testCoroutine") {
+		val resp = httpGetString("http://localhost:$port/users/test-coroutine3", credentials)
+		println("result status: ${resp.status}")
+		println("result body: ${resp.content}")
+
+		assertThat(resp.status).isEqualTo(200)
+		assertThat(resp.content).contains("""[{"name":"user2"}]""")
+	}
+
+	@Test
+	fun testCoroutine4() = useAssertJSoftAssertions("testCoroutine") {
+		val resp = httpGetString("http://localhost:$port/users/test-coroutine4", credentials)
+		println("result status: ${resp.status}")
+		println("result body: ${resp.content}")
+
+		assertThat(resp.status).isEqualTo(200)
+		assertThat(resp.content).contains("""[{"name":"user2"}]""")
 	}
 
 	@Test

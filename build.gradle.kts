@@ -80,6 +80,7 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVer")
 
 	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.7.1")
 	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.7.1")
 
 	developmentOnly("org.springframework.boot:spring-boot-docker-compose:$springBootVer")
@@ -383,7 +384,7 @@ tasks.withType<KotlinCompile> {
 		//verbose = true
 		//allWarningsAsErrors = true
 
-		freeCompilerArgs += "-Xjsr305=strict"
+		freeCompilerArgs += listOf("-Xjsr305=strict", "-Xjvm-default=all")
 		jvmTarget = javaTargetVersion.toString()
 	}
 }

@@ -60,6 +60,9 @@ Docs
    - Tests & Integration tests
      - https://docs.gradle.org/current/userguide/java_testing.html
 
+ - Coroutines
+   - https://docs.spring.io/spring-data/mongodb/reference/kotlin/coroutines.html
+
  - Tests
    - Use `@DisabledInAotMode` for tests with mocks
 

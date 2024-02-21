@@ -19,6 +19,11 @@ import kotlinx.coroutines.flow.Flow as CorFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
+import org.bson.types.ObjectId
+import org.springframework.data.annotation.Id
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository
+import org.springframework.data.repository.kotlin.CoroutineCrudRepository
+import org.springframework.stereotype.Repository
 import org.springframework.web.bind.annotation.RequestMapping
 
 
@@ -44,6 +49,8 @@ class MyController(
     private val rMongoOperations: ReactiveMongoOperations,
     //private val crMongoOperations: CorMongoOperations,
     private val crMongoClient: CorMongoClient,
+    private val rxUserRepository: RxUserRepository,
+    private val corUserRepository: CoroutineUserRepository,
 ) {
 
     @GetMapping("/customers")
@@ -113,6 +120,26 @@ class MyController(
         return userEntities
     }
 
+    @GetMapping("/test-rx2")
+    fun testRx2():
+            //Mono<List<Customer>>
+            Flux<Customer>
+    {
+        // It works ok.
+        //val userEntities = rMongoOperations.getCollection("users")
+        //    .flatMapMany { it.find(Filters.eq("name", "user1")) }
+        //    .doOnNext { doc -> println("## user $doc ( ${doc["name"]} )") }
+        //    .map { userDoc -> Customer(userDoc.getString("name")) }
+
+        val users: Flux<User> = rxUserRepository.findByName("user1")
+
+        val userEntities: Flux<Customer> = users
+            .doOnNext { user -> println("## user $user ( ${user._id}/${user.name} )") }
+            .map { user -> Customer(user.name) }
+
+        return userEntities
+    }
+
     @GetMapping("/test-coroutine")
     suspend fun testCoroutine(): CorFlow<Customer> {
 
@@ -124,6 +151,49 @@ class MyController(
             .onEach { doc -> println("## user $doc ( ${doc["name"]} )") }
             .map { userDoc -> Customer(userDoc.getString("name")) }
 
+        return res
+    }
+
+    @GetMapping("/test-coroutine2")
+    suspend fun testCoroutine2(): CorFlow<Customer> {
+
+        val users: CorFlow<User> = this.corUserRepository.findByName("user2")
+
+        val res: CorFlow<Customer> = users
+            .onEach { doc -> println("## user $doc ( ${doc._id} / ${doc.name} )") }
+            .map { user -> Customer(user.name) }
+
+        return res
+    }
+
+    @GetMapping("/test-coroutine3")
+    suspend fun testCoroutine3(): List<Customer> {
+
+        val users: List<User> = this.corUserRepository.findAllByName("user2")
+
+        val res: List<Customer> = users
+            .onEach { doc -> println("## user $doc ( ${doc._id} / ${doc.name} )") }
+            .map { user -> Customer(user.name) }
+
+        return res
+    }
+
+    @GetMapping("/test-coroutine4")
+    suspend fun testCoroutine4(): List<Customer> {
+        val user: User? = this.corUserRepository.findUserByName("user2") // "user2_unknown")
+        val res = if (user != null) listOf(Customer(user.name)) else emptyList()
+        return res
+    }
+
+    @GetMapping("/test-coroutine5")
+    suspend fun testCoroutine5(): List<Customer> {
+        val user: User = this.corUserRepository.getByName("user2") //"user2_unknown")
+
+        //corUserRepository.findOne(user._id)
+        corUserRepository.findById(user._id)
+            ?: throw IllegalStateException("findOne does not work.")
+
+        val res = listOf(Customer(user.name))
         return res
     }
 
@@ -141,4 +211,43 @@ class MyController(
         delay(10)
         emit(banner)
     }
+}
+
+
+@org.springframework.data.mongodb.core.mapping.Document("users")
+data class User (
+    @Id
+    @Suppress("PropertyName")
+    var _id: ObjectId,
+    //var _id: String,
+    var name: String,
+)
+
+@Repository
+interface RxUserRepository
+    //: ReactiveMongoRepository<User, String> {
+    : ReactiveMongoRepository<User, ObjectId> {
+    fun findByName(name: String): Flux<User>
+}
+
+@Repository
+interface CoroutineUserRepository : CoroutineCrudRepository<User, ObjectId> {
+    suspend fun getByName(name: String): User {
+        val userOrNull = findUserByName(name)
+        return userOrNull ?: throw NoSuchElementException("No user with name [$name].")
+    }
+    // It has warnings, but it works ok.
+    @Suppress("SpringDataRepositoryMethodReturnTypeInspection")
+    suspend fun findUserByName(name: String): User?
+
+    fun findByName(name: String): CorFlow<User>
+
+    // ??? Does not work.
+    //suspend fun findOne(id: String): User? // Retrieve the data once and synchronously by suspending.
+    // ??? Does not work.
+    //suspend fun findOne(id: ObjectId): User?
+
+    // It has warnings, but it works ok and for SMALL collections it should be less/more ok (in my opinion).
+    @Suppress("SpringDataRepositoryMethodReturnTypeInspection")
+    suspend fun findAllByName(id: String): List<User>
 }

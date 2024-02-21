@@ -4,6 +4,7 @@ import com.mongodb.client.FindIterable
 import com.mongodb.client.MongoCollection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import org.apache.commons.lang3.ThreadUtils
@@ -190,8 +191,15 @@ class MyController(
             .onEach { doc ->
                 println("## test-coroutine 10, thread: $currentThreadName")
                 println("## user $doc ( ${doc["name"]} )") }
-            .map { userDoc ->
+            .map {
                 println("## test-coroutine 11, thread: $currentThreadName")
+                it }
+            .flowOn(kotlinx.coroutines.Dispatchers.IO)
+            .map {
+                println("## test-coroutine 12, thread: $currentThreadName")
+                it }
+            .map { userDoc ->
+                println("## test-coroutine 13, thread: $currentThreadName")
                 //dumpThreadNames()
                 Customer(userDoc.getString("name")) }
 
@@ -213,12 +221,56 @@ class MyController(
             .onEach { doc ->
                 println("## test-coroutine2 10, thread: $currentThreadName")
                 println("## user $doc ( ${doc._id} / ${doc.name} )") }
-            .map { user ->
+            .map {
                 println("## test-coroutine2 11, thread: $currentThreadName")
+                it }
+            // !!! flowOn affects to preceding ('before') operators! Not next ('after') operators.
+            .flowOn(kotlinx.coroutines.Dispatchers.IO)
+            .map {
+                println("## test-coroutine2 12, thread: $currentThreadName")
+                it }
+            // !!! flowOn affects to preceding ('before') operators! Not next ('after') operators.
+            .flowOn(kotlinx.coroutines.Dispatchers.Default)
+            .map {
+                println("## test-coroutine2 13, thread: $currentThreadName")
+                it }
+            // !!! flowOn affects to preceding ('before') operators! Not next ('after') operators.
+            .flowOn(kotlinx.coroutines.Dispatchers.IO)
+            .map {
+                println("## test-coroutine2 14, thread: $currentThreadName")
+                it }
+            .map { user ->
+                println("## test-coroutine2 15, thread: $currentThreadName")
                 //dumpThreadNames()
                 Customer(user.name) }
 
         println("## test-coroutine2 03, thread: $currentThreadName")
+
+        /*
+        Without flowOn()
+
+        ## test [testCoroutine] started
+        ## test-coroutine2 01, thread: http-nio-auto-1-exec-5 @coroutine#1
+        ## test-coroutine2 02, thread: http-nio-auto-1-exec-5 @coroutine#1
+        ## test-coroutine2 03, thread: http-nio-auto-1-exec-5 @coroutine#1
+        ## test-coroutine2 10, thread: nioEventLoopGroup-3-5
+        ## user User(_id=000000000000000000000002, name=user2) ( 000000000000000000000002 / user2 )
+        ## test-coroutine2 11, thread: nioEventLoopGroup-3-5
+        ## test-coroutine2 12, thread: nioEventLoopGroup-3-5
+        ## test-coroutine2 13, thread: nioEventLoopGroup-3-5
+
+        With flowOn()
+        A bit unexpected behavior??? nioEventLoopGroup-3-5 disappeared??? Why???
+
+        ## test-coroutine2 01, thread: http-nio-auto-1-exec-4 @coroutine#1
+        ## test-coroutine2 02, thread: http-nio-auto-1-exec-4 @coroutine#1
+        ## test-coroutine2 03, thread: http-nio-auto-1-exec-4 @coroutine#1
+        ## test-coroutine2 10, thread: DefaultDispatcher-worker-1 @coroutine#2
+        ## user User(_id=000000000000000000000002, name=user2) ( 000000000000000000000002 / user2 )
+        ## test-coroutine2 11, thread: DefaultDispatcher-worker-1 @coroutine#2
+        ## test-coroutine2 12, thread: DefaultDispatcher-worker-1 @coroutine#2
+        ## test-coroutine2 13, thread: DefaultDispatcher-worker-1 @coroutine#2
+        */
 
         return res
     }
